@@ -8,10 +8,12 @@ class Protocol {
 public:
     virtual ~Protocol() = default;
 
-    virtual void processMessage(const std::vector<uint8_t>& message) = 0;
+    // Lida com comandos do protocolo de jogo
+    virtual void handleProtocolCommand(const std::vector<uint8_t>& message) = 0;
 
 protected:
-    ProtocolCommand readCommand(const std::vector<uint8_t>& message);
+    // Extrai o comando da mensagem recebida
+    static ProtocolCommand extractCommandFromMessage(const std::vector<uint8_t>& message);
 };
 
 #endif // PROTOCOL_H

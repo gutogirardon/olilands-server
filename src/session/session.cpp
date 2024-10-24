@@ -31,7 +31,7 @@ void Session::receiveClientData() {
                 } else {
                     // Instância de LoginProtocol
                     LoginProtocol login_protocol;
-                    LoginCredentials credentials = login_protocol.processLoginMessage(message);
+                    PlayerLoginInfo credentials = login_protocol.handleLoginRequest(message);
                     receiveClientData(); // Continue reading after processing
                 }
             }
@@ -58,7 +58,7 @@ void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
     LoginProtocol login_protocol;
 
     // Usa o LoginProtocol para processar a mensagem de autenticação
-    LoginCredentials credentials = login_protocol.processLoginMessage(message);
+    PlayerLoginInfo credentials = login_protocol.handleLoginRequest(message);
 
     // Verificar se as credenciais são válidas
     if (credentials.username == "testUser" && credentials.password == "testUser") {
