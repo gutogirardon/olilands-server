@@ -10,7 +10,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +24,8 @@ jobs:
             build-essential \
             libboost-all-dev \
             libmysqlclient-dev \
-            liblua5.1-0-dev
+            liblua5.1-0-dev \
+            libssl-dev
 
       - name: Set up LuaJIT
         run: |
