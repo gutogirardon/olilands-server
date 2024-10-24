@@ -1,11 +1,12 @@
 #include "session.h"
 #include "protocol/loginprotocol.h"
+#include "database/useraccountmanager.h"
 #include <vector>
 #include <spdlog/spdlog.h>
 #include <exception>
 
-Session::Session(boost::asio::ip::tcp::socket socket)
-    : socket_(std::move(socket)) {}
+Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager)
+    : socket_(std::move(socket)), dbManager_(dbManager) {}
 
 void Session::beginSession() {
     try {
@@ -54,14 +55,13 @@ void Session::receiveClientData() {
 }
 
 void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
-    // Instancia o LoginProtocol
+    // Instancia o LoginProtocol para processar a mensagem de autenticação
     LoginProtocol login_protocol;
-
-    // Usa o LoginProtocol para processar a mensagem de autenticação
     PlayerLoginInfo credentials = login_protocol.handleLoginRequest(message);
 
-    // Verificar se as credenciais são válidas
-    if (credentials.username == "testUser" && credentials.password == "testUser") {
+    // Instancia o UserAccountManager para validar as credenciais
+    UserAccountManager userAccountManager(dbManager_);
+    if (userAccountManager.validateLogin(credentials.username, credentials.password)) {
         spdlog::info("Player authenticated: {}", credentials.username);
         player_session_state_ = State::Authenticated;
         receiveClientData();  // Continua a leitura após autenticação

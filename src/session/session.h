@@ -3,10 +3,11 @@
 
 #include <boost/asio.hpp>
 #include "protocol/loginprotocol.h"
+#include "database/databasemanager.h"
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-    explicit Session(boost::asio::ip::tcp::socket socket);
+    explicit     Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager);
     void beginSession();
 
 private:
@@ -16,6 +17,8 @@ private:
     void authenticatePlayer(const std::vector<uint8_t>& message);
 
     boost::asio::ip::tcp::socket socket_;
+    DatabaseManager& dbManager_;
+
     enum { max_length = 1024 };
     char data_[max_length]{};
 

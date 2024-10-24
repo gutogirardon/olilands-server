@@ -38,7 +38,7 @@ int main() {
 
         // Inicializar e iniciar o servidor com base nas configurações
         int serverPort = configManager.getServerPort();
-        Server server(io_context, serverPort);
+        Server server(io_context, serverPort, dbManager);
 
         // Criar um pool de threads para o io_context
         unsigned int threadCount = 2;  // Setar para 2 threads conforme solicitado
