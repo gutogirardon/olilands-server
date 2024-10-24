@@ -2,6 +2,7 @@
 #include "protocol/loginprotocol.h"
 #include "database/useraccountmanager.h"
 #include "database/playermanager.h"
+#include "models/characterinfo.h"
 #include <vector>
 #include <spdlog/spdlog.h>
 #include <exception>
@@ -45,27 +46,82 @@ void Session::receiveClientData() {
                 login_timer_.cancel();
                 std::vector<uint8_t> message(data_, data_ + length);
 
-                if (player_session_state_ == State::Unauthenticated) {
-                    authenticatePlayer(message);
-                } else {
-                    handlePlayerCommands(message);
+                switch (player_session_state_) {
+                    case State::Unauthenticated:
+                        authenticatePlayer(message);
+                        break;
+                    case State::Authenticated:
+                        handleCharacterSelectionCommands(message);
+                        break;
+                    case State::InGame:
+                        handlePlayerCommands(message);
+                        break;
+                    default:
+                        spdlog::error("Invalid session state.");
+                        socket_.close();
+                        break;
                 }
             } else {
-                // Verificar se o erro é "operation_aborted" (cancelamento da leitura)
                 if (ec == boost::asio::error::operation_aborted) {
-                    // Cancelamento esperado, não acessamos mais o socket
                     spdlog::debug("Operation canceled as expected.");
                 }
                 else if (ec == boost::asio::error::eof) {
-                    // Cliente desconectou normalmente
                     spdlog::info("Client disconnected");
                 }
                 else {
-                    // Registrar qualquer outro erro inesperado
                     spdlog::error("Error on read: {}", ec.message());
                 }
             }
         });
+}
+
+void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& message) {
+    CharacterProtocol characterProtocol;
+    ProtocolCommand command = characterProtocol.getCommandFromMessage(message);
+
+    switch (command) {
+        case ProtocolCommand::REQUEST_CHARACTER_LIST: {
+            PlayerManager playerManager(dbManager_);
+            std::vector<CharacterInfo> characters = playerManager.getCharactersForAccount(account_id_);
+
+            // Serializar a lista de personagens para enviar ao cliente
+            std::string characterListMessage = "CharacterList|";
+            for (const auto& character : characters) {
+                characterListMessage += character.name + "," + character.vocation + "," + std::to_string(character.level) + ";";
+            }
+
+            sendDataToClient(characterListMessage);
+            receiveClientData();
+            break;
+        }
+        case ProtocolCommand::SELECT_CHARACTER: {
+            CharacterInfo selectedCharacter = characterProtocol.handleCharacterSelectionRequest(message);
+            PlayerManager playerManager(dbManager_);
+            CharacterInfo characterInfo = playerManager.getCharacterInfo(selectedCharacter.name, account_id_);
+
+            if (!characterInfo.name.empty()) {
+                spdlog::info("Character {} selected by user {}", characterInfo.name, username_);
+                player_session_state_ = State::InGame;
+
+                // Aqui você pode carregar os dados do personagem e iniciar a sessão de jogo
+
+                // Enviar confirmação ao cliente
+                sendDataToClient("CharacterSelected|" + characterInfo.name);
+
+                // Continuar recebendo comandos do jogador no estado de jogo
+                receiveClientData();
+            } else {
+                spdlog::error("Character {} not found for account {}", selectedCharacter.name, account_id_);
+                sendDataToClient("CharacterSelectionFailed");
+                receiveClientData();
+            }
+            break;
+        }
+        default:
+            spdlog::error("Unknown character selection command received: {}", static_cast<int>(command));
+            receiveClientData();
+            break;
+    }
 }
 
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
@@ -154,29 +210,27 @@ void Session::handleLoginTimeout() {
 }
 
 void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
-    // Instancia o LoginProtocol para processar a mensagem de autenticação
     LoginProtocol login_protocol;
     PlayerLoginInfo credentials = login_protocol.handleLoginRequest(message);
 
-    // Instancia o UserAccountManager para validar as credenciais
     UserAccountManager userAccountManager(dbManager_);
-    int account_id = 0;  // Variável para armazenar o account_id
+    int account_id = 0;
 
     if (userAccountManager.validateLogin(credentials.username, credentials.password, account_id)) {
         spdlog::info("Player authenticated: {}", credentials.username);
         player_session_state_ = State::Authenticated;
-        account_id_ = account_id;  // Armazena o account_id na sessão
+        account_id_ = account_id;
+        username_ = credentials.username;
 
         // Enviar uma resposta de sucesso ao cliente
         auto successMessage = std::make_shared<std::string>("Login successful");
 
-        // Capturar 'self' para garantir que o objeto permaneça vivo durante a operação assíncrona
         auto self = shared_from_this();
         boost::asio::async_write(socket_, boost::asio::buffer(*successMessage),
             [this, self, successMessage](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
                     spdlog::info("Login success message sent to client.");
-                    receiveClientData();  // Continua a leitura após autenticação
+                    receiveClientData();  // Agora aguardamos comandos de seleção de personagem
                 } else {
                     spdlog::error("Error sending login success message: {}", ec.message());
                 }
@@ -184,18 +238,18 @@ void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
         );
     } else {
         spdlog::error("Authentication failed for player: {}", credentials.username);
-        socket_.close();  // Fecha a conexão em caso de falha
+        socket_.close();
     }
 }
 
-void Session::sendDataToClient(std::size_t length) {
+void Session::sendDataToClient(const std::string& message) {
     auto self = shared_from_this();
-    boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
-        [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+    auto msg = std::make_shared<std::string>(message);
+    boost::asio::async_write(socket_, boost::asio::buffer(*msg),
+        [this, self, msg](boost::system::error_code ec, std::size_t /*length*/) {
             if (!ec) {
-                receiveClientData();
-            }
-            else {
+                // Nada a fazer aqui
+            } else {
                 spdlog::error("Error on write: {}", ec.message());
             }
         });
