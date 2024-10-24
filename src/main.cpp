@@ -22,7 +22,7 @@ int main() {
         LogManager logManager;
         logManager.initialize(configManager.getLogLevel());
 
-        // Inicializar o DatabaseManager e conectar ao MySQL
+        // Inicializar o DatabaseManager com Pool de Conexões
         DatabaseManager dbManager(configManager);
         if (!dbManager.connect()) {
             spdlog::error("Failed to connect to MySQL.");

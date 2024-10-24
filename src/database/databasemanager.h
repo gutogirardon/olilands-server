@@ -1,7 +1,7 @@
 #ifndef DATABASEMANAGER_H
 #define DATABASEMANAGER_H
 
-#include <mysql/mysql.h>
+#include "connectionpool.h"
 #include "config/configmanager.h"
 
 class DatabaseManager {
@@ -11,12 +11,12 @@ public:
 
     bool connect();
     bool isConnected() const;
-    void reconnect();
     MYSQL* getConnection();
+    void releaseConnection(MYSQL* conn);
 
 private:
     const ConfigManager& config_;
-    MYSQL* connection_;
+    std::unique_ptr<ConnectionPool> connectionPool_;  // Usar pool de conexões
 };
 
 #endif // DATABASEMANAGER_H

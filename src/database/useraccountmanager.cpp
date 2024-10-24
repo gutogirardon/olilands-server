@@ -9,10 +9,10 @@ UserAccountManager::UserAccountManager(DatabaseManager& dbManager)
     : dbManager_(dbManager) {}
 
 bool UserAccountManager::validateLogin(const std::string& username, const std::string& password) {
-    MYSQL* conn = dbManager_.getConnection();
+    MYSQL* conn = dbManager_.getConnection();  // Adquire uma conexão do pool
 
-    if (!dbManager_.isConnected()) {
-        spdlog::error("Failed to connect to the database.");
+    if (!conn) {
+        spdlog::error("No available database connection.");
         return false;
     }
 
@@ -20,12 +20,14 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
 
     if (mysql_query(conn, query.c_str())) {
         spdlog::error("MySQL query error: {}", mysql_error(conn));
+        dbManager_.releaseConnection(conn);  // Libera a conexão em caso de erro
         return false;
     }
 
     MYSQL_RES* result = mysql_store_result(conn);
     if (result == nullptr) {
         spdlog::error("MySQL store result error: {}", mysql_error(conn));
+        dbManager_.releaseConnection(conn);  // Libera a conexão em caso de erro
         return false;
     }
 
@@ -33,6 +35,7 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
     if (row == nullptr) {
         spdlog::info("Invalid username or password.");
         mysql_free_result(result);
+        dbManager_.releaseConnection(conn);  // Libera a conexão
         return false;
     }
 
@@ -40,6 +43,7 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
     std::string received_password_hash = hashPassword(password);
 
     mysql_free_result(result);
+    dbManager_.releaseConnection(conn);  // Libera a conexão após uso
 
     if (stored_password_hash == received_password_hash) {
         spdlog::info("User {} authenticated successfully.", username);
