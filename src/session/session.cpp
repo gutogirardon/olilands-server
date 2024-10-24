@@ -1,4 +1,3 @@
-// src/Session.cpp
 #include "session.h"
 #include "protocol/loginprotocol.h"
 #include <vector>
@@ -27,9 +26,10 @@ void Session::do_read() {
             if (!ec) {
                 std::vector<uint8_t> message(data_, data_ + length);
 
+                // Certifique-se de que o LoginProtocol está corretamente instanciado
                 LoginProtocol loginProtocol;
-                loginProtocol.processMessage(message);
-                do_read();
+                loginProtocol.processMessage(message); // Chamando o método do LoginProtocol
+                do_read(); // Continua a leitura após processar a mensagem
             }
             else {
                 if (ec == boost::asio::error::eof) {

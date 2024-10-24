@@ -1,41 +1,19 @@
-// src/protocol/loginprotocol.h
 #ifndef LOGIN_PROTOCOL_H
 #define LOGIN_PROTOCOL_H
 
 #include "protocol.h"
 #include <spdlog/spdlog.h>
 #include <string>
+#include <vector>
 
 class LoginProtocol : public Protocol {
 public:
     // Processa a mensagem de login
-    void processMessage(const std::vector<uint8_t>& message) override {
-        try {
-            ProtocolCommand command = readCommand(message);
-
-            if (command == ProtocolCommand::LOGIN) {
-                std::string username = extractString(message, 1); // Lê o username começando no byte 1
-                std::string password = extractString(message, 1 + username.size() + 1); // Lê a senha após o username
-
-                spdlog::info("Login attempt with username: {} and password: {}", username, password);
-                // Aqui você pode adicionar a lógica para validar o login
-            } else {
-                spdlog::error("Unexpected command received: {}", static_cast<int>(command));
-            }
-        } catch (const std::exception& e) {
-            spdlog::error("Error processing message: {}", e.what());
-        }
-    }
+    void processMessage(const std::vector<uint8_t>& message) override;
 
 private:
     // Função auxiliar para extrair uma string de um vetor de bytes
-    std::string extractString(const std::vector<uint8_t>& message, size_t start) {
-        size_t length = 0;
-        while (start + length < message.size() && message[start + length] != 0) {
-            length++;
-        }
-        return std::string(reinterpret_cast<const char*>(&message[start]), length);
-    }
+    std::string extractString(const std::vector<uint8_t>& message, size_t start);
 };
 
 #endif // LOGIN_PROTOCOL_H
