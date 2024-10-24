@@ -20,6 +20,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
+# Habilitar pkg-config
+find_package(PkgConfig REQUIRED)
+
+# Encontrar LuaJIT usando pkg-config
+pkg_check_modules(LUAJIT REQUIRED luajit)
+
+if(NOT LUAJIT_FOUND)
+    message(FATAL_ERROR "LuaJIT not found!")
+endif()
+
+# Encontrar a biblioteca LuaJIT usando find_library
+find_library(LUAJIT_LIB luajit-5.1 PATHS ${LUAJIT_LIBRARY_DIRS} /opt/homebrew/lib)
+
+if(NOT LUAJIT_LIB)
+    message(FATAL_ERROR "LuaJIT library 'luajit-5.1' not found!")
+endif()
+
 # Buscar todos os arquivos .cpp recursivamente na pasta src/
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/**/*.cpp")
 
@@ -30,10 +47,12 @@ add_executable(olilands_server ${SOURCES})
 target_include_directories(olilands_server PRIVATE
         ${Boost_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/src
+        ${LUAJIT_INCLUDE_DIRS}
 )
 
-# Linkar bibliotecas Boost e spdlog
+# Linkar bibliotecas Boost, spdlog e LuaJIT
 target_link_libraries(olilands_server PRIVATE
         Boost::system
         spdlog::spdlog
+        ${LUAJIT_LIB}
 )
