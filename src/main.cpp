@@ -1,6 +1,6 @@
-// src/main.cpp
 #include <boost/asio.hpp>
 #include <string>
+#include <thread>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -40,8 +40,22 @@ int main() {
         int serverPort = configManager.getServerPort();
         Server server(io_context, serverPort);
 
-        // Executar o io_context na thread principal
-        io_context.run();
+        // Criar um pool de threads para o io_context
+        unsigned int threadCount = 2;  // Setar para 2 threads conforme solicitado
+        std::vector<std::thread> threads;
+
+        for (unsigned int i = 0; i < threadCount; ++i) {
+            threads.emplace_back([&io_context]() {
+                io_context.run();
+            });
+        }
+
+        // Aguardar que todas as threads terminem
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
 
         // Parar o monitor de memória quando o servidor parar
         memoryMonitor.stop();
