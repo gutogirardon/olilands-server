@@ -55,11 +55,7 @@ endif()
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/**/*.cpp")
 
 # Adicionar executável antes de definir include directories
-add_executable(olilands_server ${SOURCES}
-        src/database/databasemanager.cpp
-        src/database/databasemanager.h
-        src/database/usermanager.cpp
-        src/database/usermanager.h)
+add_executable(olilands_server ${SOURCES})
 
 # Definir diretórios de inclusão
 target_include_directories(olilands_server PRIVATE

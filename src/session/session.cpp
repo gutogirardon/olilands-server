@@ -1,5 +1,7 @@
 // src/Session.cpp
 #include "session.h"
+#include "protocol/loginprotocol.h"
+#include <vector>
 #include <spdlog/spdlog.h>
 #include <exception>
 
@@ -23,12 +25,11 @@ void Session::do_read() {
     socket_.async_read_some(boost::asio::buffer(data_, max_length),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
-                std::string message(data_, length);
-                spdlog::info("Received from client: {}", message);
+                std::vector<uint8_t> message(data_, data_ + length);
 
-                // Here you can process the message and possibly send a response
-                // For example, echo the message back to the client
-                do_write(length);
+                LoginProtocol loginProtocol;
+                loginProtocol.processMessage(message);
+                do_read();
             }
             else {
                 if (ec == boost::asio::error::eof) {
