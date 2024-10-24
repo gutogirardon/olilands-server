@@ -14,6 +14,7 @@ ConfigManager::~ConfigManager() {
 }
 
 bool ConfigManager::loadConfig() {
+    spdlog::info("Loading config.lua....");
     if (luaL_dofile(L_, configPath_.c_str()) != LUA_OK) {
         spdlog::error("Failed to load config.lua: {}", lua_tostring(L_, -1));
         return false;

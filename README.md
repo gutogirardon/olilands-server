@@ -68,3 +68,7 @@ Após a compilação, execute o servidor:
 
 ```bash
 ./olilands_server
+```
+
+# Account
+admin / admin 

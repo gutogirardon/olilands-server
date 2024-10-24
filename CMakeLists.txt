@@ -41,10 +41,22 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     # Configuração para macOS usando Homebrew para MySQL C API
     find_path(MYSQL_INCLUDE_DIR mysql/mysql.h PATHS /opt/homebrew/opt/mysql-client/include)
     find_library(MYSQL_LIB NAMES mysqlclient PATHS /opt/homebrew/opt/mysql-client/lib)
+
+    # Localizar OpenSSL via Homebrew
+    find_package(OpenSSL REQUIRED)
+    if(NOT OpenSSL_FOUND)
+        message(FATAL_ERROR "OpenSSL not found! Please install it via Homebrew.")
+    endif()
+
+    include_directories(${OPENSSL_INCLUDE_DIR})
+    link_directories(${OPENSSL_LIBRARIES})
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     # Configuração para Linux (Ubuntu)
     find_path(MYSQL_INCLUDE_DIR mysql/mysql.h PATHS /usr/include /usr/local/include)
     find_library(MYSQL_LIB NAMES mysqlclient PATHS /usr/lib /usr/local/lib)
+
+    # No Linux, encontrar o OpenSSL
+    find_package(OpenSSL REQUIRED)
 endif()
 
 if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIB)
@@ -55,11 +67,7 @@ endif()
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/**/*.cpp")
 
 # Adicionar executável antes de definir include directories
-add_executable(olilands_server ${SOURCES}
-        src/database/databasemanager.cpp
-        src/database/databasemanager.h
-        src/database/usermanager.cpp
-        src/database/usermanager.h)
+add_executable(olilands_server ${SOURCES})
 
 # Definir diretórios de inclusão
 target_include_directories(olilands_server PRIVATE
@@ -67,6 +75,7 @@ target_include_directories(olilands_server PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${LUAJIT_INCLUDE_DIRS}
         ${MYSQL_INCLUDE_DIR}
+        ${OPENSSL_INCLUDE_DIR}
 )
 
 # Linkar bibliotecas Boost, spdlog, LuaJIT e MySQL C API
@@ -75,6 +84,8 @@ target_link_libraries(olilands_server PRIVATE
         spdlog::spdlog
         ${LUAJIT_LIB}
         ${MYSQL_LIB}
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 # Adicionar diretórios de linkagem do MySQL C API

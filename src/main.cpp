@@ -1,9 +1,10 @@
-// src/main.cpp
 #include <boost/asio.hpp>
 #include <string>
+#include <thread>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "config/logmanager.h"
 #include "server/server.h"
 #include "config/configmanager.h"
 #include "database/databasemanager.h"
@@ -18,22 +19,8 @@ int main() {
             return 1;
         }
 
-        // Configurar spdlog com base nas configurações
-        spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#] [%^%l%$] %v");
-
-        std::string logLevel = configManager.getLogLevel();
-        if (logLevel == "debug") {
-            spdlog::set_level(spdlog::level::debug);
-        } else if (logLevel == "info") {
-            spdlog::set_level(spdlog::level::info);
-        } else if (logLevel == "warn") {
-            spdlog::set_level(spdlog::level::warn);
-        } else if (logLevel == "error") {
-            spdlog::set_level(spdlog::level::err);
-        } else {
-            spdlog::set_level(spdlog::level::info);
-            spdlog::warn("Unknown log level '{}'. Using 'info' as default.", logLevel);
-        }
+        LogManager logManager;
+        logManager.initialize(configManager.getLogLevel());
 
         // Inicializar o DatabaseManager e conectar ao MySQL
         DatabaseManager dbManager(configManager);
@@ -51,10 +38,24 @@ int main() {
 
         // Inicializar e iniciar o servidor com base nas configurações
         int serverPort = configManager.getServerPort();
-        Server server(io_context, serverPort);
+        Server server(io_context, serverPort, dbManager);
 
-        // Executar o io_context na thread principal
-        io_context.run();
+        // Criar um pool de threads para o io_context
+        unsigned int threadCount = 2;  // Setar para 2 threads conforme solicitado
+        std::vector<std::thread> threads;
+
+        for (unsigned int i = 0; i < threadCount; ++i) {
+            threads.emplace_back([&io_context]() {
+                io_context.run();
+            });
+        }
+
+        // Aguardar que todas as threads terminem
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
 
         // Parar o monitor de memória quando o servidor parar
         memoryMonitor.stop();
