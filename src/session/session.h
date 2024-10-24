@@ -15,7 +15,7 @@ private:
     void receiveClientData();
     void sendDataToClient(std::size_t length);
     void authenticatePlayer(const std::vector<uint8_t>& message);
-
+    void handlePlayerCommands(const std::vector<uint8_t>& message);
     void handleLoginTimeout();
 
     boost::asio::ip::tcp::socket socket_;
@@ -26,6 +26,7 @@ private:
     char data_[max_length]{};
 
     State player_session_state_ = State::Unauthenticated;
+    int account_id_;
 };
 
 #endif // SESSION_H

@@ -8,7 +8,7 @@
 UserAccountManager::UserAccountManager(DatabaseManager& dbManager)
     : dbManager_(dbManager) {}
 
-bool UserAccountManager::validateLogin(const std::string& username, const std::string& password) {
+bool UserAccountManager::validateLogin(const std::string& username, const std::string& password, int& account_id) {
     MYSQL* conn = dbManager_.getConnection();  // Adquire uma conexão do pool
 
     if (!conn) {
@@ -16,7 +16,7 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
         return false;
     }
 
-    std::string query = "SELECT password_hash FROM user_account WHERE username = '" + username + "' LIMIT 1";
+    std::string query = "SELECT id, password_hash FROM user_account WHERE username = '" + username + "' LIMIT 1";
 
     if (mysql_query(conn, query.c_str())) {
         spdlog::error("MySQL query error: {}", mysql_error(conn));
@@ -39,7 +39,8 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
         return false;
     }
 
-    std::string stored_password_hash = row[0];
+    account_id = std::stoi(row[0]);
+    std::string stored_password_hash = row[1];
     std::string received_password_hash = hashPassword(password);
 
     mysql_free_result(result);
@@ -50,7 +51,7 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
         return true;
     }
 
-    spdlog::info("Invalid password for user: {}", username);
+    spdlog::warn("Invalid password for user: {}", username);
     return false;
 }
 

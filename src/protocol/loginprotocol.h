@@ -11,6 +11,11 @@ struct PlayerLoginInfo {
     std::string password;
 };
 
+struct PlayerCreationInfo {
+    std::string name;
+    std::string vocation;
+};
+
 class LoginProtocol : public Protocol {
 public:
     LoginProtocol() = default;
@@ -18,8 +23,13 @@ public:
     // Lida com a requisição de login e retorna as informações de login do jogador
     PlayerLoginInfo handleLoginRequest(const std::vector<uint8_t>& message);
 
+    // Lida com a criação de personagem
+    PlayerCreationInfo handleCharacterCreationRequest(const std::vector<uint8_t>& message);
+
     // Lida com qualquer mensagem de protocolo do jogo
     void handleProtocolCommand(const std::vector<uint8_t>& message) override;
+
+    ProtocolCommand getCommandFromMessage(const std::vector<uint8_t>& message);
 
 private:
     // Função auxiliar para extrair uma string de dados de uma mensagem

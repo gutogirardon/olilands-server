@@ -13,8 +13,9 @@ void Server::do_accept() {
     acceptor_.async_accept(
         [this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
             if (!ec) {
-                // Cria uma nova sessão e passa a referência para o DatabaseManager
-                std::make_shared<Session>(std::move(socket), dbManager_)->beginSession();
+                // Certifique-se de que a nova sessão é gerida corretamente por shared_ptr
+                auto new_session = std::make_shared<Session>(std::move(socket), dbManager_);
+                new_session->beginSession();
             }
             else {
                 spdlog::error("Error accepting connection: {}", ec.message());
@@ -24,3 +25,4 @@ void Server::do_accept() {
             do_accept();
         });
 }
+

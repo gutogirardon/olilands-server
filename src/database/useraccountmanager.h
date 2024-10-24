@@ -9,7 +9,7 @@ public:
     explicit UserAccountManager(DatabaseManager& dbManager);
 
     // Método para validar o login do usuário
-    bool validateLogin(const std::string& username, const std::string& password);
+    bool validateLogin(const std::string& username, const std::string& password, int& account_id);
 
 private:
     DatabaseManager& dbManager_;
