@@ -41,8 +41,12 @@ int main() {
         Server server(io_context, serverPort, dbManager);
 
         // Criar um pool de threads para o io_context
-        unsigned int threadCount = 2;  // Setar para 2 threads conforme solicitado
+        unsigned int threadCount = std::thread::hardware_concurrency();
+        if (threadCount > 3) {
+            threadCount = 3;
+        }
         std::vector<std::thread> threads;
+        spdlog::info("The number of threads used is {}", threadCount);
 
         for (unsigned int i = 0; i < threadCount; ++i) {
             threads.emplace_back([&io_context]() {

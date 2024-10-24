@@ -6,7 +6,7 @@
 
 class UserAccountManager {
 public:
-    UserAccountManager(DatabaseManager& dbManager);
+    explicit UserAccountManager(DatabaseManager& dbManager);
 
     // Método para validar o login do usuário
     bool validateLogin(const std::string& username, const std::string& password);
@@ -15,7 +15,7 @@ private:
     DatabaseManager& dbManager_;
 
     // Método auxiliar para gerar o hash da senha
-    std::string hashPassword(const std::string& password);
+    static std::string hashPassword(const std::string& password);
 };
 
 #endif // USERACCOUNTMANAGER_H

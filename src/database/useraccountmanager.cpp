@@ -44,10 +44,10 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
     if (stored_password_hash == received_password_hash) {
         spdlog::info("User {} authenticated successfully.", username);
         return true;
-    } else {
-        spdlog::info("Invalid password for user: {}", username);
-        return false;
     }
+
+    spdlog::info("Invalid password for user: {}", username);
+    return false;
 }
 
 std::string UserAccountManager::hashPassword(const std::string& password) {

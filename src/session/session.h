@@ -16,7 +16,10 @@ private:
     void sendDataToClient(std::size_t length);
     void authenticatePlayer(const std::vector<uint8_t>& message);
 
+    void handleLoginTimeout();
+
     boost::asio::ip::tcp::socket socket_;
+    boost::asio::steady_timer login_timer_;
     DatabaseManager& dbManager_;
 
     enum { max_length = 1024 };
