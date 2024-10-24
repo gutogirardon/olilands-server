@@ -55,6 +55,33 @@ bool ConfigManager::loadConfig() {
     }
     lua_pop(L_, 1);
 
+    // MySQL configurations
+    lua_getfield(L_, -1, "mysql");
+    if (lua_istable(L_, -1)) {
+        lua_getfield(L_, -1, "user");
+        mysql_user_ = lua_isstring(L_, -1) ? lua_tostring(L_, -1) : "root";
+        lua_pop(L_, 1);
+
+        lua_getfield(L_, -1, "password");
+        mysql_password_ = lua_isstring(L_, -1) ? lua_tostring(L_, -1) : "";
+        lua_pop(L_, 1);
+
+        lua_getfield(L_, -1, "host");
+        mysql_host_ = lua_isstring(L_, -1) ? lua_tostring(L_, -1) : "127.0.0.1";
+        lua_pop(L_, 1);
+
+        lua_getfield(L_, -1, "port");
+        mysql_port_ = lua_isnumber(L_, -1) ? static_cast<int>(lua_tointeger(L_, -1)) : 3306;
+        lua_pop(L_, 1);
+
+        lua_getfield(L_, -1, "database");
+        mysql_database_ = lua_isstring(L_, -1) ? lua_tostring(L_, -1) : "game_database";
+        lua_pop(L_, 1);
+    } else {
+        spdlog::warn("MySQL configuration not found in config.lua");
+    }
+    lua_pop(L_, 1);
+
     return true;
 }
 
@@ -68,4 +95,24 @@ double ConfigManager::getMemoryThreshold() const {
 
 int ConfigManager::getServerPort() const {
     return server_port_;
+}
+
+std::string ConfigManager::getMySQLUser() const {
+    return mysql_user_;
+}
+
+std::string ConfigManager::getMySQLPassword() const {
+    return mysql_password_;
+}
+
+std::string ConfigManager::getMySQLHost() const {
+    return mysql_host_;
+}
+
+int ConfigManager::getMySQLPort() const {
+    return mysql_port_;
+}
+
+std::string ConfigManager::getMySQLDatabase() const {
+    return mysql_database_;
 }

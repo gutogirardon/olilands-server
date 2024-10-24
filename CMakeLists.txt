@@ -1,4 +1,3 @@
-# CMakeLists.txt
 cmake_minimum_required(VERSION 3.14)
 project(olilands_server)
 
@@ -37,22 +36,46 @@ if(NOT LUAJIT_LIB)
     message(FATAL_ERROR "LuaJIT library 'luajit-5.1' not found!")
 endif()
 
+# Detectar sistema operacional
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    # Configuração para macOS usando Homebrew para MySQL C API
+    find_path(MYSQL_INCLUDE_DIR mysql/mysql.h PATHS /opt/homebrew/opt/mysql-client/include)
+    find_library(MYSQL_LIB NAMES mysqlclient PATHS /opt/homebrew/opt/mysql-client/lib)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    # Configuração para Linux (Ubuntu)
+    find_path(MYSQL_INCLUDE_DIR mysql/mysql.h PATHS /usr/include /usr/local/include)
+    find_library(MYSQL_LIB NAMES mysqlclient PATHS /usr/lib /usr/local/lib)
+endif()
+
+if(NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIB)
+    message(FATAL_ERROR "MySQL C API (libmysqlclient) not found! Please install it via Homebrew or apt.")
+endif()
+
 # Buscar todos os arquivos .cpp recursivamente na pasta src/
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/**/*.cpp")
 
 # Adicionar executável antes de definir include directories
-add_executable(olilands_server ${SOURCES})
+add_executable(olilands_server ${SOURCES}
+        src/database/databasemanager.cpp
+        src/database/databasemanager.h
+        src/database/usermanager.cpp
+        src/database/usermanager.h)
 
 # Definir diretórios de inclusão
 target_include_directories(olilands_server PRIVATE
         ${Boost_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/src
         ${LUAJIT_INCLUDE_DIRS}
+        ${MYSQL_INCLUDE_DIR}
 )
 
-# Linkar bibliotecas Boost, spdlog e LuaJIT
+# Linkar bibliotecas Boost, spdlog, LuaJIT e MySQL C API
 target_link_libraries(olilands_server PRIVATE
         Boost::system
         spdlog::spdlog
         ${LUAJIT_LIB}
+        ${MYSQL_LIB}
 )
+
+# Adicionar diretórios de linkagem do MySQL C API
+link_directories(${MYSQL_LIB})
