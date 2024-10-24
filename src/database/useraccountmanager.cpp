@@ -1,5 +1,5 @@
 #include "useraccountmanager.h"
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <sstream>
 #include <iomanip>
 #include <mysql/mysql.h>
@@ -51,15 +51,35 @@ bool UserAccountManager::validateLogin(const std::string& username, const std::s
 }
 
 std::string UserAccountManager::hashPassword(const std::string& password) {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, password.c_str(), password.size());
-    SHA256_Final(hash, &sha256);
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int lengthOfHash = 0;
+
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    if(context == nullptr) {
+        throw std::runtime_error("Failed to create EVP_MD_CTX.");
+    }
+
+    if(!EVP_DigestInit_ex(context, EVP_sha256(), nullptr)) {
+        EVP_MD_CTX_free(context);
+        throw std::runtime_error("Failed to initialize EVP for SHA256.");
+    }
+
+    if(!EVP_DigestUpdate(context, password.c_str(), password.size())) {
+        EVP_MD_CTX_free(context);
+        throw std::runtime_error("Failed to update EVP digest.");
+    }
+
+    if(!EVP_DigestFinal_ex(context, hash, &lengthOfHash)) {
+        EVP_MD_CTX_free(context);
+        throw std::runtime_error("Failed to finalize EVP digest.");
+    }
+
+    EVP_MD_CTX_free(context);
 
     std::stringstream ss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+    for(unsigned int i = 0; i < lengthOfHash; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
     }
+
     return ss.str();
 }
