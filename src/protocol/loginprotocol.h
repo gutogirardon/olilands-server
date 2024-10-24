@@ -6,13 +6,19 @@
 #include <string>
 #include <vector>
 
+struct LoginCredentials {
+    std::string username;
+    std::string password;
+};
+
 class LoginProtocol : public Protocol {
 public:
-    // Processa a mensagem de login
+    LoginProtocol() = default;
+
+    LoginCredentials processLoginMessage(const std::vector<uint8_t>& message);
     void processMessage(const std::vector<uint8_t>& message) override;
 
 private:
-    // Função auxiliar para extrair uma string de um vetor de bytes
     std::string extractString(const std::vector<uint8_t>& message, size_t start);
 };
 

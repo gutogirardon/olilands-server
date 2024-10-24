@@ -7,7 +7,7 @@
 Session::Session(boost::asio::ip::tcp::socket socket)
     : socket_(std::move(socket)) {}
 
-void Session::start() {
+void Session::beginSession() {
     try {
         spdlog::info("Client connected: {}:{}",
                      socket_.remote_endpoint().address().to_string(),
@@ -16,20 +16,24 @@ void Session::start() {
     catch (const std::exception& e) {
         spdlog::error("Error obtaining client endpoint: {}", e.what());
     }
-    do_read();
+    receiveClientData();
 }
 
-void Session::do_read() {
+void Session::receiveClientData() {
     auto self(shared_from_this());
     socket_.async_read_some(boost::asio::buffer(data_, max_length),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
                 std::vector<uint8_t> message(data_, data_ + length);
 
-                // Certifique-se de que o LoginProtocol está corretamente instanciado
-                LoginProtocol loginProtocol;
-                loginProtocol.processMessage(message); // Chamando o método do LoginProtocol
-                do_read(); // Continua a leitura após processar a mensagem
+                if (player_session_state_ == State::Unauthenticated) {
+                    authenticatePlayer(message);
+                } else {
+                    // Instância de LoginProtocol
+                    LoginProtocol login_protocol;
+                    LoginCredentials credentials = login_protocol.processLoginMessage(message);
+                    receiveClientData(); // Continue reading after processing
+                }
             }
             else {
                 if (ec == boost::asio::error::eof) {
@@ -49,13 +53,30 @@ void Session::do_read() {
         });
 }
 
-void Session::do_write(std::size_t length) {
+void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
+    // Instancia o LoginProtocol
+    LoginProtocol login_protocol;
+
+    // Usa o LoginProtocol para processar a mensagem de autenticação
+    LoginCredentials credentials = login_protocol.processLoginMessage(message);
+
+    // Verificar se as credenciais são válidas
+    if (credentials.username == "testUser" && credentials.password == "testUser") {
+        spdlog::info("Player authenticated: {}", credentials.username);
+        player_session_state_ = State::Authenticated;
+        receiveClientData();  // Continua a leitura após autenticação
+    } else {
+        spdlog::error("Authentication failed for player: {}", credentials.username);
+        socket_.close();  // Fecha a conexão em caso de falha
+    }
+}
+
+void Session::sendDataToClient(std::size_t length) {
     auto self(shared_from_this());
     boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
         [this, self](boost::system::error_code ec, std::size_t /*length*/) {
             if (!ec) {
-                // Continue reading data from the client
-                do_read();
+                receiveClientData();
             }
             else {
                 spdlog::error("Error on write: {}", ec.message());

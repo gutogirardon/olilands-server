@@ -13,7 +13,7 @@ void Server::do_accept() {
         [this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
             if (!ec) {
                 // Create a new session for the connected client
-                std::make_shared<Session>(std::move(socket))->start();
+                std::make_shared<Session>(std::move(socket))->beginSession();
             }
             else {
                 spdlog::error("Error accepting connection: {}", ec.message());
