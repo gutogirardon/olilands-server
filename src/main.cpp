@@ -9,6 +9,7 @@
 #include "config/configmanager.h"
 #include "database/databasemanager.h"
 #include "monitoring/memorymonitor.h"
+#include "world/maploader.h"
 
 int main() {
     try {
@@ -26,6 +27,12 @@ int main() {
         DatabaseManager dbManager(configManager);
         if (!dbManager.connect()) {
             spdlog::error("Failed to connect to MySQL.");
+            return 1;
+        }
+
+        MapLoader mapLoader;
+        if (!mapLoader.loadMap("data/map.tmx")) {
+            spdlog::error("Failed to load the map.");
             return 1;
         }
 
