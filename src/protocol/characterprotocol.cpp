@@ -1,4 +1,5 @@
 #include "characterprotocol.h"
+#include "movementprotocol.h"
 #include <spdlog/spdlog.h>
 
 ProtocolCommand CharacterProtocol::getCommandFromMessage(const std::vector<uint8_t>& message) {
@@ -8,6 +9,19 @@ ProtocolCommand CharacterProtocol::getCommandFromMessage(const std::vector<uint8
 void CharacterProtocol::handleCharacterListRequest(const std::vector<uint8_t>& message) {
     spdlog::info("Received character list request.");
     // A implementação real será feita na sessão, este método é apenas ilustrativo
+}
+
+void CharacterProtocol::handleMovementRequest(const std::vector<uint8_t>& message) {
+    try {
+        MovementProtocol movementProtocol;
+        auto [x, y] = movementProtocol.extractMovementData(message);
+        spdlog::info("Character movement request received: x = {}, y = {}", x, y);
+
+        // Aqui você pode adicionar o processamento para atualizar a posição no servidor,
+        // como atualizar a posição do jogador e informar aos jogadores próximos
+    } catch (const std::exception& e) {
+        spdlog::error("Error processing movement request: {}", e.what());
+    }
 }
 
 CharacterInfo CharacterProtocol::handleCharacterSelectionRequest(const std::vector<uint8_t>& message) {
@@ -63,6 +77,9 @@ void CharacterProtocol::handleProtocolCommand(const std::vector<uint8_t>& messag
         break;
     case ProtocolCommand::CREATE_CHARACTER:
         handleCharacterCreationRequest(message);
+        break;
+    case ProtocolCommand::MOVE_CHARACTER:
+        handleMovementRequest(message);
         break;
     default:
         spdlog::error("Unhandled character protocol command: {}", static_cast<int>(command));

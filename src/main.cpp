@@ -46,7 +46,8 @@ int main() {
 
         // Inicializar e iniciar o servidor com base nas configurações
         int serverPort = configManager.getServerPort();
-        Server server(io_context, serverPort, dbManager);
+        Server server(io_context, serverPort, dbManager, world);
+
 
         // Criar um pool de threads para o io_context
         unsigned int threadCount = std::thread::hardware_concurrency();

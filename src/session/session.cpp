@@ -1,15 +1,18 @@
 #include "session.h"
+#include "models/characterinfo.h"
 #include "protocol/loginprotocol.h"
+#include "protocol/movementprotocol.h"
+#include "protocol/characterprotocol.h"
 #include "database/useraccountmanager.h"
 #include "database/playermanager.h"
-#include "models/characterinfo.h"
 #include <vector>
 #include <spdlog/spdlog.h>
 #include <exception>
 
-Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager)
+Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager, World& world)
     : socket_(std::move(socket)),
       dbManager_(dbManager),
+      world_(world),
       login_timer_(socket_.get_executor())
 {}
 
@@ -143,9 +146,33 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
     }
 }
 
+void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
+    MovementProtocol movementProtocol;
+    ProtocolCommand command = movementProtocol.getCommandFromMessage(message);
+
+    if (command == ProtocolCommand::MOVE_CHARACTER) {
+        auto [x, y] = movementProtocol.extractMovementData(message);
+
+        // Atualize a posição do jogador no World
+        world_.updatePlayerPosition(player_id_, x, y);
+
+        // Notifique os jogadores próximos sobre a nova posição
+        std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10); // Exemplo de alcance 10
+        auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, x, y);
+
+        for (int nearbyPlayerId : nearbyPlayers) {
+            // Enviar a atualização de posição para cada jogador próximo
+            // Aqui precisará de lógica para obter a sessão de cada jogador próximo e enviar a mensagem
+            // Por exemplo: `getSessionById(nearbyPlayerId)->sendDataToClient(positionUpdateMessage);`
+        }
+
+        spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, x, y);
+    }
+}
+
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
-    LoginProtocol loginProtocol;
-    ProtocolCommand command = loginProtocol.getCommandFromMessage(message);
+    CharacterProtocol characterProtocol;
+    ProtocolCommand command = characterProtocol.getCommandFromMessage(message);
 
     switch (command) {
     case ProtocolCommand::LOGOUT: {
@@ -154,9 +181,6 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
             break;
     }
     case ProtocolCommand::PING: {
-            spdlog::info("Received ping from client.");
-
-            // Enviar resposta de pong ao cliente
             auto pongMessage = std::make_shared<std::string>("Pong");
             auto self = shared_from_this();
             async_write(socket_, boost::asio::buffer(*pongMessage),
@@ -170,6 +194,10 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
             );
             break;
     }
+    case ProtocolCommand::MOVE_CHARACTER: {  // Novo caso para mover o jogador
+            handleMovementCommands(message);
+            break;
+    }
     default: {
             spdlog::error("Unknown command received: {}", static_cast<int>(command));
             receiveClientData();
@@ -177,7 +205,6 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     }
     }
 }
-
 
 void Session::handleLoginTimeout() {
     spdlog::warn("Login timeout for client");

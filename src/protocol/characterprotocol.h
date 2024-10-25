@@ -21,6 +21,9 @@ public:
     // Lida com a seleção de um personagem
     CharacterInfo handleCharacterSelectionRequest(const std::vector<uint8_t>& message);
 
+    // Lida com o comando de movimento do personagem
+    void handleMovementRequest(const std::vector<uint8_t>& message);
+
     // Extrai o comando da mensagem
     ProtocolCommand getCommandFromMessage(const std::vector<uint8_t>& message);
 

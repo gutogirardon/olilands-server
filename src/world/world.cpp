@@ -9,7 +9,13 @@ bool World::initialize(const std::string& mapFilePath) {
         return false;
     }
 
-    // Inicializar outros componentes do mundo, se necessário
-
     return true;
+}
+
+void World::updatePlayerPosition(int playerId, int x, int y) {
+    mapManager.updatePlayerPosition(playerId, x, y);
+}
+
+std::vector<int> World::getPlayersInProximity(int playerId, int range) const {
+    return mapManager.getPlayersInProximity(playerId, range);
 }

@@ -1,10 +1,10 @@
 #ifndef MAPMANAGER_H
 #define MAPMANAGER_H
 
-#include "maploader.h"
 #include "tilelayer.h"
+#include "maploader.h"
 #include <vector>
-#include <string>
+#include <unordered_map>
 
 class MapManager {
 public:
@@ -12,12 +12,15 @@ public:
     ~MapManager();
 
     bool initialize(const std::string& mapFilePath);
-
     const std::vector<TileLayer>& getTileLayers() const;
 
+    void updatePlayerPosition(int playerId, int x, int y);
+    std::vector<int> getPlayersInProximity(int playerId, int range) const;
+
 private:
-    MapLoader mapLoader;
     std::vector<TileLayer> tileLayers;
+    std::unordered_map<int, std::pair<int, int>> playerPositions;
+    MapLoader mapLoader;
 };
 
 #endif // MAPMANAGER_H

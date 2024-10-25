@@ -1,5 +1,6 @@
 #include "mapmanager.h"
 #include <spdlog/spdlog.h>
+#include <cmath>
 
 MapManager::MapManager() = default;
 
@@ -12,8 +13,6 @@ bool MapManager::initialize(const std::string& mapFilePath) {
     }
 
     const tmx::Map& map = mapLoader.getMap();
-
-    // Processar as camadas de tiles
     const auto& layers = map.getLayers();
     for (const auto& layer : layers) {
         if (layer->getType() == tmx::Layer::Type::Tile) {
@@ -21,12 +20,42 @@ bool MapManager::initialize(const std::string& mapFilePath) {
             TileLayer newLayer(tileLayer);
             tileLayers.push_back(std::move(newLayer));
         }
-        // Processar outros tipos de camada, se necessário
     }
-
     return true;
 }
 
 const std::vector<TileLayer>& MapManager::getTileLayers() const {
     return tileLayers;
+}
+
+void MapManager::updatePlayerPosition(int playerId, int x, int y) {
+    playerPositions[playerId] = {x, y};
+    spdlog::info("Updated position for playerId {}: ({}, {})", playerId, x, y);
+}
+
+std::vector<int> MapManager::getPlayersInProximity(int playerId, int range) const {
+    std::vector<int> nearbyPlayers;
+    auto it = playerPositions.find(playerId);
+    if (it == playerPositions.end()) {
+        spdlog::warn("Player ID {} not found in positions", playerId);
+        return nearbyPlayers;
+    }
+
+    int x = it->second.first;
+    int y = it->second.second;
+
+    for (const auto& [otherPlayerId, position] : playerPositions) {
+        if (otherPlayerId == playerId) continue;
+
+        int dx = position.first - x;
+        int dy = position.second - y;
+        int distance = static_cast<int>(std::sqrt(dx * dx + dy * dy));
+
+        if (distance <= range) {
+            nearbyPlayers.push_back(otherPlayerId);
+        }
+    }
+
+    spdlog::info("Found {} players near playerId {} within range {}", nearbyPlayers.size(), playerId, range);
+    return nearbyPlayers;
 }
