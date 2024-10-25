@@ -10,14 +10,25 @@ if(NOT Boost_FOUND)
     message(FATAL_ERROR "Boost not found!")
 endif()
 
-# Usar FetchContent para baixar spdlog
+# Usar FetchContent para baixar spdlog e tmxlite
 include(FetchContent)
+
+# spdlog
 FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
         GIT_TAG v1.14.1
 )
 FetchContent_MakeAvailable(spdlog)
+
+# tmxlite
+FetchContent_Declare(
+        tmxlite
+        GIT_REPOSITORY https://github.com/fallahn/tmxlite.git
+        GIT_TAG v1.4.4
+        SOURCE_SUBDIR tmxlite
+)
+FetchContent_MakeAvailable(tmxlite)
 
 # Habilitar pkg-config
 find_package(PkgConfig REQUIRED)
@@ -78,7 +89,7 @@ target_include_directories(olilands_server PRIVATE
         ${OPENSSL_INCLUDE_DIR}
 )
 
-# Linkar bibliotecas Boost, spdlog, LuaJIT e MySQL C API
+# Linkar bibliotecas Boost, spdlog, LuaJIT, MySQL C API e tmxlite
 target_link_libraries(olilands_server PRIVATE
         Boost::system
         spdlog::spdlog
@@ -86,6 +97,7 @@ target_link_libraries(olilands_server PRIVATE
         ${MYSQL_LIB}
         OpenSSL::SSL
         OpenSSL::Crypto
+        tmxlite
 )
 
 # Adicionar diretórios de linkagem do MySQL C API
