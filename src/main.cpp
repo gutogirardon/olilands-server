@@ -9,7 +9,7 @@
 #include "config/configmanager.h"
 #include "database/databasemanager.h"
 #include "monitoring/memorymonitor.h"
-#include "world/maploader.h"
+#include "world/world.h"
 
 int main() {
     try {
@@ -30,9 +30,10 @@ int main() {
             return 1;
         }
 
-        MapLoader mapLoader;
-        if (!mapLoader.loadMap("data/map.tmx")) {
-            spdlog::error("Failed to load the map.");
+        // Inicializar o mundo
+        World world;
+        if (!world.initialize("data/map.tmx")) {
+            spdlog::error("Failed to initialize the world.");
             return 1;
         }
 
