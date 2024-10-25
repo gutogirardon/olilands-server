@@ -117,6 +117,25 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
             }
             break;
         }
+        case ProtocolCommand::CREATE_CHARACTER: {
+                    // Mover o tratamento de criação de personagem para cá
+                    CharacterCreationInfo creationInfo = characterProtocol.handleCharacterCreationRequest(message);
+
+                    PlayerManager playerManager(dbManager_);
+                    if (playerManager.createCharacter(creationInfo.name, creationInfo.vocation, account_id_)) {
+                        spdlog::info("Character created successfully.");
+
+                        // Enviar uma resposta de sucesso ao cliente
+                        sendDataToClient("Character created successfully");
+                    } else {
+                        spdlog::error("Character creation failed.");
+
+                        // Enviar uma mensagem de erro ao cliente
+                        sendDataToClient("Character creation failed");
+                    }
+                    receiveClientData();
+                    break;
+        }
         default:
             spdlog::error("Unknown character selection command received: {}", static_cast<int>(command));
             receiveClientData();
@@ -129,57 +148,18 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     ProtocolCommand command = loginProtocol.getCommandFromMessage(message);
 
     switch (command) {
-        case ProtocolCommand::CREATE_CHARACTER: {
-            PlayerCreationInfo creationInfo = loginProtocol.handleCharacterCreationRequest(message);
-
-            PlayerManager playerManager(dbManager_);
-            if (playerManager.createCharacter(creationInfo.name, creationInfo.vocation, account_id_)) {
-                spdlog::info("Character created successfully.");
-
-                // Enviar uma resposta de sucesso ao cliente
-                auto successMessage = std::make_shared<std::string>("Character created successfully");
-                auto self = shared_from_this();
-                boost::asio::async_write(socket_, boost::asio::buffer(*successMessage),
-                    [this, self, successMessage](boost::system::error_code ec, std::size_t /*length*/) {
-                        if (!ec) {
-                            spdlog::info("Character creation confirmation sent to client.");
-                            receiveClientData();  // Continua a leitura
-                        } else {
-                            spdlog::error("Error sending character creation confirmation: {}", ec.message());
-                        }
-                    }
-                );
-            } else {
-                spdlog::error("Character creation failed.");
-
-                // Enviar uma mensagem de erro ao cliente
-                auto errorMessage = std::make_shared<std::string>("Character creation failed");
-                auto self = shared_from_this();
-                boost::asio::async_write(socket_, boost::asio::buffer(*errorMessage),
-                    [this, self, errorMessage](boost::system::error_code ec, std::size_t /*length*/) {
-                        if (!ec) {
-                            spdlog::info("Character creation failure message sent to client.");
-                            receiveClientData();  // Continua a leitura
-                        } else {
-                            spdlog::error("Error sending character creation failure message: {}", ec.message());
-                        }
-                    }
-                );
-            }
-            break;
-        }
-        case ProtocolCommand::LOGOUT: {
+    case ProtocolCommand::LOGOUT: {
             spdlog::info("Player logged out.");
             socket_.close();
             break;
-        }
-        case ProtocolCommand::PING: {
+    }
+    case ProtocolCommand::PING: {
             spdlog::info("Received ping from client.");
 
             // Enviar resposta de pong ao cliente
             auto pongMessage = std::make_shared<std::string>("Pong");
             auto self = shared_from_this();
-            boost::asio::async_write(socket_, boost::asio::buffer(*pongMessage),
+            async_write(socket_, boost::asio::buffer(*pongMessage),
                 [this, self, pongMessage](boost::system::error_code ec, std::size_t /*length*/) {
                     if (!ec) {
                         receiveClientData();
@@ -189,13 +169,15 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
                 }
             );
             break;
-        }
-        default: {
+    }
+    default: {
             spdlog::error("Unknown command received: {}", static_cast<int>(command));
+            receiveClientData();
             break;
-        }
+    }
     }
 }
+
 
 void Session::handleLoginTimeout() {
     spdlog::warn("Login timeout for client");

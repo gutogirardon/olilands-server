@@ -2,6 +2,7 @@
 #define LOGIN_PROTOCOL_H
 
 #include "protocol.h"
+
 #include <spdlog/spdlog.h>
 #include <string>
 #include <vector>
@@ -11,20 +12,12 @@ struct PlayerLoginInfo {
     std::string password;
 };
 
-struct PlayerCreationInfo {
-    std::string name;
-    std::string vocation;
-};
-
 class LoginProtocol : public Protocol {
 public:
     LoginProtocol() = default;
 
     // Lida com a requisição de login e retorna as informações de login do jogador
     PlayerLoginInfo handleLoginRequest(const std::vector<uint8_t>& message);
-
-    // Lida com a criação de personagem
-    PlayerCreationInfo handleCharacterCreationRequest(const std::vector<uint8_t>& message);
 
     // Lida com qualquer mensagem de protocolo do jogo
     void handleProtocolCommand(const std::vector<uint8_t>& message) override;
