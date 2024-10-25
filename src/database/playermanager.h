@@ -11,11 +11,14 @@ public:
 
     bool createCharacter(const std::string& name, const std::string& vocation, int account_id);
 
-    // Novo método para obter a lista de personagens
     std::vector<CharacterInfo> getCharactersForAccount(int account_id);
-
-    // Método para carregar dados de um personagem específico
     CharacterInfo getCharacterInfo(const std::string& characterName, int account_id);
+
+    // Novo método para recuperar posição do jogador
+    std::tuple<int, int, int> getPlayerPosition(int player_id);
+
+    // Novo método para atualizar posição do jogador
+    bool updatePlayerPosition(int player_id, int pos_x, int pos_y, int pos_z);
 
 private:
     DatabaseManager& dbManager_;

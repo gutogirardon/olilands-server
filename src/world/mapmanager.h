@@ -16,6 +16,7 @@ public:
 
     void updatePlayerPosition(int playerId, int x, int y);
     std::vector<int> getPlayersInProximity(int playerId, int range) const;
+    std::tuple<int, int, int> getPlayerPosition(int playerId) const;
 
 private:
     std::vector<TileLayer> tileLayers;

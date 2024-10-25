@@ -3,6 +3,7 @@
 
 #include "mapmanager.h"
 #include <vector>
+#include <tuple>
 
 class World {
 public:
@@ -14,8 +15,10 @@ public:
     // Atualiza a posição do jogador no mapa
     void updatePlayerPosition(int playerId, int x, int y);
 
-    std::vector<int> getPlayersInProximity(int playerId, int range) const;
+    // Recupera a posição do jogador no mapa
+    std::tuple<int, int, int> getPlayerPosition(int playerId) const;
 
+    std::vector<int> getPlayersInProximity(int playerId, int range) const;
 
 private:
     MapManager mapManager;

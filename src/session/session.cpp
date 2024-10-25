@@ -104,9 +104,12 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
 
             if (!characterInfo.name.empty()) {
                 spdlog::info("Character {} selected by user {}", characterInfo.name, username_);
+                // Recupera a posição do personagem antes de mudar para o estado InGame
+                auto [pos_x, pos_y, pos_z] = playerManager.getPlayerPosition(characterInfo.id);
+                // Define posição inicial do personagem no mundo
+                world_.updatePlayerPosition(characterInfo.id, pos_x, pos_y);
+                player_id_ = characterInfo.id;
                 player_session_state_ = State::InGame;
-
-                // Aqui você pode carregar os dados do personagem e iniciar a sessão de jogo
 
                 // Enviar confirmação ao cliente
                 sendDataToClient("CharacterSelected|" + characterInfo.name);
@@ -151,14 +154,21 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
     ProtocolCommand command = movementProtocol.getCommandFromMessage(message);
 
     if (command == ProtocolCommand::MOVE_CHARACTER) {
-        auto [x, y] = movementProtocol.extractMovementData(message);
+        auto [delta_x, delta_y] = movementProtocol.extractMovementData(message);
+
+        // Recuperar posição atual do jogador
+        auto [current_x, current_y, current_z] = world_.getPlayerPosition(player_id_);
+
+        // Ajuste para movimento unitário
+        int new_x = current_x + (delta_x == 0 ? 0 : (delta_x > 0 ? 1 : -1));
+        int new_y = current_y + (delta_y == 0 ? 0 : (delta_y > 0 ? 1 : -1));
 
         // Atualize a posição do jogador no World
-        world_.updatePlayerPosition(player_id_, x, y);
+        world_.updatePlayerPosition(player_id_, new_x, new_y);
 
         // Notifique os jogadores próximos sobre a nova posição
         std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10); // Exemplo de alcance 10
-        auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, x, y);
+        auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, new_x, new_y);
 
         for (int nearbyPlayerId : nearbyPlayers) {
             // Enviar a atualização de posição para cada jogador próximo
@@ -166,9 +176,10 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
             // Por exemplo: `getSessionById(nearbyPlayerId)->sendDataToClient(positionUpdateMessage);`
         }
 
-        spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, x, y);
+        spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
     }
 }
+
 
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     CharacterProtocol characterProtocol;

@@ -33,6 +33,16 @@ void MapManager::updatePlayerPosition(int playerId, int x, int y) {
     spdlog::info("Updated position for playerId {}: ({}, {})", playerId, x, y);
 }
 
+std::tuple<int, int, int> MapManager::getPlayerPosition(int playerId) const {
+    auto it = playerPositions.find(playerId);
+    if (it != playerPositions.end()) {
+        return {it->second.first, it->second.second, 0};
+    } else {
+        spdlog::warn("Player ID {} not found in playerPositions", playerId);
+        return {0, 0, 0};
+    }
+}
+
 std::vector<int> MapManager::getPlayersInProximity(int playerId, int range) const {
     std::vector<int> nearbyPlayers;
     auto it = playerPositions.find(playerId);
