@@ -20,9 +20,16 @@ private:
     void handleMovementCommands(const std::vector<uint8_t>& message);
     void handleLoginTimeout();
     void handleCharacterSelectionCommands(const std::vector<uint8_t>& message);
+    void handleDisconnection(const boost::system::error_code& ec);
+
+    // Atualização de posição no banco
+    void startPositionUpdateTimer();
+    void savePlayerPosition();
 
     boost::asio::ip::tcp::socket socket_;
     boost::asio::steady_timer login_timer_;
+    boost::asio::steady_timer position_update_timer_;
+
     DatabaseManager& dbManager_;
     World& world_;
 
@@ -33,6 +40,12 @@ private:
     int account_id_;
     std::string username_;
     int player_id_;
+    bool is_position_valid = false;
+
+    // Variáveis para armazenar a última posição salva
+    int last_saved_x_ = 0;
+    int last_saved_y_ = 0;
+    int last_saved_z_ = 0;
 };
 
 #endif // SESSION_H

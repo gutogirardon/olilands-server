@@ -3,6 +3,8 @@
 #define MEMORY_MONITOR_H
 
 #include <thread>
+#include <atomic>
+#include <chrono>
 
 class MemoryMonitor {
 public:
