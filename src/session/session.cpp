@@ -149,7 +149,11 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
                     // Inicia o temporizador para atualização de posição no banco
                     startPositionUpdateTimer();
 
-                    sendDataToClient("CharacterSelected|" + characterInfo.name);
+                    sendDataToClient("CharacterSelected|" + characterInfo.name + "|" +
+                                                                    std::to_string(pos_x) + "," +
+                                                                    std::to_string(pos_y) + "," +
+                                                                    std::to_string(pos_z));
+
                 } else {
                     spdlog::warn("Invalid position for character {}: ({}, {}, {})", characterInfo.name, pos_x, pos_y, pos_z);
                     sendDataToClient("CharacterSelectionFailed");
