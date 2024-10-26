@@ -11,14 +11,10 @@ public:
     ~World();
 
     bool initialize(const std::string& mapFilePath);
-
-    // Atualiza a posição do jogador no mapa
     void updatePlayerPosition(int playerId, int x, int y);
-
-    // Recupera a posição do jogador no mapa
     std::tuple<int, int, int> getPlayerPosition(int playerId) const;
-
     std::vector<int> getPlayersInProximity(int playerId, int range) const;
+    bool isPositionWalkable(int x, int y) const;
 
 private:
     MapManager mapManager;

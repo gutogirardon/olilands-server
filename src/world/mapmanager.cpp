@@ -13,6 +13,37 @@ bool MapManager::initialize(const std::string& mapFilePath) {
     }
 
     const tmx::Map& map = mapLoader.getMap();
+
+    // Obter dimensões do mapa
+    mapWidth = map.getTileCount().x;
+    mapHeight = map.getTileCount().y;
+    tileWidth = map.getTileSize().x;
+    tileHeight = map.getTileSize().y;
+
+    // Inicializar o grid de colisão como caminhável
+    collisionGrid.resize(mapHeight, std::vector<bool>(mapWidth, true));
+
+    // Processar as áreas de colisão
+    const auto& collisionAreas = mapLoader.getCollisionAreas();
+    for (const auto& rect : collisionAreas) {
+        int startX = static_cast<int>(rect.left / tileWidth);
+        int startY = static_cast<int>(rect.top / tileHeight);
+        int endX = static_cast<int>((rect.left + rect.width) / tileWidth);
+        int endY = static_cast<int>((rect.top + rect.height) / tileHeight);
+
+        spdlog::debug("Processing collision area from ({}, {}) to ({}, {})", startX, startY, endX, endY);
+
+
+        for (int y = startY; y <= endY; ++y) {
+            for (int x = startX; x <= endX; ++x) {
+                if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+                    collisionGrid[y][x] = false; // Marca como não caminhável
+                }
+            }
+        }
+    }
+
+    // Processar camadas de tiles, se necessário
     const auto& layers = map.getLayers();
     for (const auto& layer : layers) {
         if (layer->getType() == tmx::Layer::Type::Tile) {
@@ -22,6 +53,13 @@ bool MapManager::initialize(const std::string& mapFilePath) {
         }
     }
     return true;
+}
+
+bool MapManager::isPositionWalkable(int x, int y) const {
+    if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        return collisionGrid[y][x];
+    }
+    return false; // Posições fora do mapa não são caminháveis
 }
 
 const std::vector<TileLayer>& MapManager::getTileLayers() const {

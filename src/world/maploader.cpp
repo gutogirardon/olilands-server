@@ -1,6 +1,10 @@
 #include "maploader.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <tmxlite/TileLayer.hpp>
+#include <tmxlite/ObjectGroup.hpp>
+#include <tmxlite/Property.hpp>
+#include <tmxlite/Tileset.hpp>
 
 MapLoader::MapLoader()
     : map_(std::make_unique<tmx::Map>())
@@ -113,7 +117,18 @@ bool MapLoader::loadMap(const std::string& filePath) {
         }
         else if (layer->getType() == tmx::Layer::Type::Object) {
             spdlog::info("Processing object layer: {}", layer->getName());
-            // Processar os objetos da camada, se necessário
+            const auto& objectLayer = layer->getLayerAs<tmx::ObjectGroup>();
+
+            if (objectLayer.getName() == "Collision") {
+                spdlog::info("Processing collision objects.");
+                for (const auto& object : objectLayer.getObjects()) {
+                    tmx::FloatRect rect = object.getAABB();
+                    collisionAreas_.push_back(rect);
+                    spdlog::debug("Collision object at ({}, {}), size ({}, {})",
+                                  rect.left, rect.top, rect.width, rect.height);
+                }
+            }
+            // Processar outros objetos, se necessário
         }
         else if (layer->getType() == tmx::Layer::Type::Image) {
             spdlog::info("Processing image layer: {}", layer->getName());
@@ -130,4 +145,8 @@ bool MapLoader::loadMap(const std::string& filePath) {
 
 const tmx::Map& MapLoader::getMap() const {
     return *map_;
+}
+
+const std::vector<tmx::FloatRect>& MapLoader::getCollisionAreas() const {
+    return collisionAreas_;
 }

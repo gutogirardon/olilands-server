@@ -23,3 +23,7 @@ std::tuple<int, int, int> World::getPlayerPosition(int playerId) const {
 std::vector<int> World::getPlayersInProximity(int playerId, int range) const {
     return mapManager.getPlayersInProximity(playerId, range);
 }
+
+bool World::isPositionWalkable(int x, int y) const {
+    return mapManager.isPositionWalkable(x, y);
+}

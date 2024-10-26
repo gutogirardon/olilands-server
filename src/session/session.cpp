@@ -194,19 +194,32 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
     if (command == ProtocolCommand::MOVE_CHARACTER) {
         auto [delta_x, delta_y] = movementProtocol.extractMovementData(message);
         auto [current_x, current_y, current_z] = world_.getPlayerPosition(player_id_);
-        int new_x = current_x + (delta_x == 0 ? 0 : (delta_x > 0 ? 1 : -1));
-        int new_y = current_y + (delta_y == 0 ? 0 : (delta_y > 0 ? 1 : -1));
+        int new_x = current_x + delta_x;
+        int new_y = current_y + delta_y;
 
-        world_.updatePlayerPosition(player_id_, new_x, new_y);
+        // Verifica se a nova posição é caminhável
+        if (world_.isPositionWalkable(new_x, new_y)) {
+            // Atualiza a posição do jogador no mundo
+            world_.updatePlayerPosition(player_id_, new_x, new_y);
 
-        std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10);
-        auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, new_x, new_y);
+            // Envia a atualização de posição para jogadores próximos
+            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10);
+            auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, new_x, new_y);
 
-        for (int nearbyPlayerId : nearbyPlayers) {
-            // Enviar a atualização de posição para cada jogador próximo
+            for (int nearbyPlayerId : nearbyPlayers) {
+                // Enviar a atualização de posição para cada jogador próximo
+                // Supondo que você tenha um mecanismo para enviar mensagens para outros jogadores
+                // Por exemplo:
+                // sessionManager.sendToPlayer(nearbyPlayerId, positionUpdateMessage);
+            }
+
+            spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
+        } else {
+            spdlog::warn("Player {} attempted to move to invalid position ({}, {})", player_id_, new_x, new_y);
+            // Opcional: Enviar mensagem ao cliente informando que o movimento não é permitido
+            sendDataToClient("MovementBlocked");
         }
 
-        spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
         receiveClientData();
     }
 }
