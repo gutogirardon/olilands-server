@@ -78,7 +78,7 @@ void CharacterProtocol::handleProtocolCommand(const std::vector<uint8_t>& messag
     case ProtocolCommand::CREATE_CHARACTER:
         handleCharacterCreationRequest(message);
         break;
-    case ProtocolCommand::MOVE_CHARACTER:
+    case ProtocolCommand::MOVE_CHARACTER: //@todo validar se isso está sendo usado
         handleMovementRequest(message);
         break;
     default:

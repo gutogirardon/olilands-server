@@ -41,7 +41,7 @@ void Session::beginSession() {
 void Session::startPositionUpdateTimer() {
     if (!socket_.is_open()) return;  // Verifica se a conexão está aberta
 
-    position_update_timer_.expires_after(std::chrono::seconds(5));
+    position_update_timer_.expires_after(std::chrono::milliseconds(500));
     auto self = shared_from_this();
     position_update_timer_.async_wait([this, self](const boost::system::error_code& ec) {
         if (!ec) {
@@ -196,15 +196,25 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
     ProtocolCommand command = movementProtocol.getCommandFromMessage(message);
 
     if (command == ProtocolCommand::MOVE_CHARACTER) {
-        auto [delta_x, delta_y] = movementProtocol.extractMovementData(message);
-        auto [current_x, current_y, current_z] = world_.getPlayerPosition(player_id_);
-        int new_x = current_x + delta_x;
-        int new_y = current_y + delta_y;
+        //auto [current_x, current_y, current_z] = world_.getPlayerPosition(player_id_);
+        auto [new_x, new_y] = movementProtocol.extractMovementData(message);
 
         // Verifica se a nova posição é caminhável
         if (world_.isPositionWalkable(new_x, new_y)) {
             // Atualiza a posição do jogador no mundo
             world_.updatePlayerPosition(player_id_, new_x, new_y);
+
+            // Obtém a nova posição atualizada
+            auto [updated_x, updated_y, updated_z] = world_.getPlayerPosition(player_id_);
+
+            // Cria a mensagem de confirmação de movimento
+            std::string confirmationMessage = "MovementConfirmed|" +
+                std::to_string(updated_x) + "," +
+                std::to_string(updated_y) + "," +
+                std::to_string(updated_z);
+
+            // Envia a confirmação de movimento ao cliente
+            sendDataToClient(confirmationMessage);
 
             // Envia a atualização de posição para jogadores próximos
             std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10);
@@ -227,6 +237,7 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
         receiveClientData();
     }
 }
+
 
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     CharacterProtocol characterProtocol;

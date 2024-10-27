@@ -36,6 +36,7 @@ bool MapLoader::loadMap(const std::string& filePath) {
     spdlog::info("Map Dimensions: {} x {} tiles", mapSize.x, mapSize.y);
     spdlog::info("Tile Size: {} x {} pixels", tileSize.x, tileSize.y);
     spdlog::info("Number of Layers: {}", layers.size());
+    spdlog::info("Map Bounds in Pixels - Width: {}, Height: {}", mapBounds.width, mapBounds.height);
 
     // Obter tilesets
     const auto& tilesets = map_->getTilesets();
@@ -69,16 +70,16 @@ bool MapLoader::loadMap(const std::string& filePath) {
                     value = "Unknown Type";
                     break;
             }
-            spdlog::info(" - {} : {}", property.getName(), value);
+            spdlog::debug(" - {} : {}", property.getName(), value);
         }
     }
 
     // Processar as camadas do mapa
     for (const auto& layer : layers) {
-        spdlog::info("Layer: {}", layer->getName());
-        spdlog::info(" - Type: {}", static_cast<int>(layer->getType()));
-        spdlog::info(" - Opacity: {}", layer->getOpacity());
-        spdlog::info(" - Visible: {}", layer->getVisible());
+        spdlog::debug("Layer: {}", layer->getName());
+        spdlog::debug(" - Type: {}", static_cast<int>(layer->getType()));
+        spdlog::debug(" - Opacity: {}", layer->getOpacity());
+        spdlog::debug(" - Visible: {}", layer->getVisible());
 
         // Obter propriedades da camada
         const auto& layerProperties = layer->getProperties();
@@ -106,7 +107,7 @@ bool MapLoader::loadMap(const std::string& filePath) {
                         value = "Unknown Type";
                         break;
                 }
-                spdlog::info("   - {} : {}", property.getName(), value);
+                spdlog::debug("   - {} : {}", property.getName(), value);
             }
         }
 

@@ -65,6 +65,7 @@
          "y":0
         }, 
         {
+         "class":"collision",
          "draworder":"topdown",
          "id":2,
          "name":"Collision",

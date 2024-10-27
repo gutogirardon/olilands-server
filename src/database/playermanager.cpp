@@ -139,7 +139,7 @@ std::tuple<int, int, int> PlayerManager::getPlayerPosition(int player_id) {
 
     if (!dbManager_.isConnected()) {
         spdlog::error("Failed to connect to the database.");
-        return {0, 0, 0}; // Retorna posição padrão em caso de erro
+        return {0, 0, 0}; //@todo nao podemos retornar isso em caso de erro
     }
 
     std::string query = "SELECT pos_x, pos_y, pos_z FROM players WHERE id = " + std::to_string(player_id);

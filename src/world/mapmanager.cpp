@@ -14,44 +14,39 @@ bool MapManager::initialize(const std::string& mapFilePath) {
 
     const tmx::Map& map = mapLoader.getMap();
 
-    // Obter dimensões do mapa
-    mapWidth = map.getTileCount().x;
-    mapHeight = map.getTileCount().y;
+    // Obter dimensões do mapa em pixels
+    mapWidth = static_cast<int>(map.getBounds().width);
+    mapHeight = static_cast<int>(map.getBounds().height);
+
+    // Obter tamanho do tile
     tileWidth = map.getTileSize().x;
     tileHeight = map.getTileSize().y;
 
-    // Inicializar o grid de colisão como caminhável
+    spdlog::info("Map Info: width: {} pixels, height {} pixels", mapWidth, mapHeight);
+    spdlog::info("Tile Info: width: {}, height {}", tileWidth, tileHeight);
+
+    // Inicializar o grid de colisão diretamente em pixels
     collisionGrid.resize(mapHeight, std::vector<bool>(mapWidth, true));
 
-    // Processar as áreas de colisão
+    // Processar as áreas de colisão (agora em pixels)
     const auto& collisionAreas = mapLoader.getCollisionAreas();
     for (const auto& rect : collisionAreas) {
-        int startX = static_cast<int>(rect.left / tileWidth);
-        int startY = static_cast<int>(rect.top / tileHeight);
-        int endX = static_cast<int>((rect.left + rect.width) / tileWidth);
-        int endY = static_cast<int>((rect.top + rect.height) / tileHeight);
+        int startX = static_cast<int>(rect.left);
+        int startY = static_cast<int>(rect.top);
+        int endX = static_cast<int>(rect.left + rect.width);
+        int endY = static_cast<int>(rect.top + rect.height);
 
         spdlog::debug("Processing collision area from ({}, {}) to ({}, {})", startX, startY, endX, endY);
-
 
         for (int y = startY; y <= endY; ++y) {
             for (int x = startX; x <= endX; ++x) {
                 if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
-                    collisionGrid[y][x] = false; // Marca como não caminhável
+                    collisionGrid[y][x] = false; // Marca o pixel como não caminhável
                 }
             }
         }
     }
 
-    // Processar camadas de tiles, se necessário
-    const auto& layers = map.getLayers();
-    for (const auto& layer : layers) {
-        if (layer->getType() == tmx::Layer::Type::Tile) {
-            const auto& tileLayer = layer->getLayerAs<tmx::TileLayer>();
-            TileLayer newLayer(tileLayer);
-            tileLayers.push_back(std::move(newLayer));
-        }
-    }
     return true;
 }
 
@@ -59,7 +54,7 @@ bool MapManager::isPositionWalkable(int x, int y) const {
     if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
         return collisionGrid[y][x];
     }
-    return false; // Posições fora do mapa não são caminháveis
+    return false; // Posições fora do mapa nao anda
 }
 
 const std::vector<TileLayer>& MapManager::getTileLayers() const {
