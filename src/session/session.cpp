@@ -1,4 +1,5 @@
 #include "session.h"
+#include "sessionmanager.h"
 #include "models/characterinfo.h"
 #include "protocol/loginprotocol.h"
 #include "protocol/movementprotocol.h"
@@ -9,10 +10,11 @@
 #include <spdlog/spdlog.h>
 #include <exception>
 
-Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager, World& world)
+Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager, World& world, SessionManager& sessionManager)
     : socket_(std::move(socket)),
       dbManager_(dbManager),
       world_(world),
+      sessionManager_(sessionManager),
       login_timer_(socket_.get_executor()),
       position_update_timer_(socket_.get_executor()),
       last_saved_x_(0), last_saved_y_(0), last_saved_z_(0) {}
@@ -111,6 +113,7 @@ void Session::handleDisconnection(const boost::system::error_code& ec) {
     } else {
         spdlog::error("Error on read: {}", ec.message());
     }
+    sessionManager_.removeSession(player_id_);
     socket_.close();
 }
 
@@ -137,7 +140,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
 
             if (!characterInfo.name.empty()) {
                 spdlog::info("Character {} selected by user {}", characterInfo.name, username_);
-
+                sessionManager_.addSession(player_id_, shared_from_this());
                 auto [pos_x, pos_y, pos_z] = playerManager.getPlayerPosition(characterInfo.id);
 
                 if (pos_x != 0 || pos_y != 0 || pos_z != 0) {
@@ -217,14 +220,16 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
             sendDataToClient(confirmationMessage);
 
             // Envia a atualização de posição para jogadores próximos
-            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 10);
-            auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, new_x, new_y);
+            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 2000); //@todo ver que tamanho vamos usar
+            auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, updated_x, updated_y);
 
             for (int nearbyPlayerId : nearbyPlayers) {
-                // Enviar a atualização de posição para cada jogador próximo
-                // Supondo que você tenha um mecanismo para enviar mensagens para outros jogadores
-                // Por exemplo:
-                // sessionManager.sendToPlayer(nearbyPlayerId, positionUpdateMessage);
+                if (nearbyPlayerId == player_id_) continue; // Evita enviar para si mesmo
+
+                auto session = sessionManager_.getSession(nearbyPlayerId);
+                if (session) {
+                    session->sendDataToClient(positionUpdateMessage);
+                }
             }
 
             spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
@@ -319,6 +324,19 @@ void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
 void Session::sendDataToClient(const std::string& message) {
     auto self = shared_from_this();
     auto msg = std::make_shared<std::string>(message);
+    boost::asio::async_write(socket_, boost::asio::buffer(*msg),
+        [this, self, msg](boost::system::error_code ec, std::size_t /*length*/) {
+            if (!ec) {
+                // Nada a fazer aqui
+            } else {
+                spdlog::error("Error on write: {}", ec.message());
+            }
+        });
+}
+
+void Session::sendDataToClient(const std::vector<uint8_t>& message) {
+    auto self = shared_from_this();
+    auto msg = std::make_shared<std::vector<uint8_t>>(message);
     boost::asio::async_write(socket_, boost::asio::buffer(*msg),
         [this, self, msg](boost::system::error_code ec, std::size_t /*length*/) {
             if (!ec) {
