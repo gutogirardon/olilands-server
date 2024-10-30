@@ -2,17 +2,14 @@
 #define SESSION_H
 
 #include <boost/asio.hpp>
-#include <memory>
 #include <vector>
 #include "database/databasemanager.h"
 #include "world/world.h"
 
-// Forward declaration da classe SessionManager
 class SessionManager;
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-    // Construtor com forward-declared SessionManager
     explicit Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager, World& world, SessionManager& sessionManager);
 
     void beginSession();
@@ -21,7 +18,6 @@ private:
     enum class State { Unauthenticated, Authenticated, CharacterSelection, InGame };
 
     void receiveClientData();
-    void sendDataToClient(const std::string& message);
     void sendDataToClient(const std::vector<uint8_t>& message);
     void authenticatePlayer(const std::vector<uint8_t>& message);
     void handlePlayerCommands(const std::vector<uint8_t>& message);
@@ -30,7 +26,6 @@ private:
     void handleCharacterSelectionCommands(const std::vector<uint8_t>& message);
     void handleDisconnection(const boost::system::error_code& ec);
 
-    // Atualização de posição no banco
     void startPositionUpdateTimer();
     void savePlayerPosition();
 
@@ -51,7 +46,6 @@ private:
     int player_id_;
     bool is_position_valid = false;
 
-    // Variáveis para armazenar a última posição salva
     int last_saved_x_ = 0;
     int last_saved_y_ = 0;
     int last_saved_z_ = 0;

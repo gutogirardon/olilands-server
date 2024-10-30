@@ -1,6 +1,7 @@
 #include "characterprotocol.h"
 #include "movementprotocol.h"
 #include <spdlog/spdlog.h>
+#include <cstring>
 
 ProtocolCommand CharacterProtocol::getCommandFromMessage(const std::vector<uint8_t>& message) {
     return extractCommandFromMessage(message);
@@ -102,4 +103,100 @@ int CharacterProtocol::extractDataInt(const std::vector<uint8_t>& message, size_
     int value;
     std::memcpy(&value, &message[start], sizeof(int));
     return value;
+}
+
+std::vector<uint8_t> CharacterProtocol::createCharacterList(const std::vector<CharacterInfo>& characters) {
+    CharacterListResponse response;
+    response.numCharacters = static_cast<uint16_t>(characters.size());
+    response.characters = characters;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+
+    // Serialize numCharacters (2 bytes, big-endian)
+    data.push_back((response.numCharacters >> 8) & 0xFF);
+    data.push_back(response.numCharacters & 0xFF);
+
+    for (const auto& character : characters) {
+        // Serialize characterId (4 bytes, big-endian)
+        data.push_back((character.id >> 24) & 0xFF);
+        data.push_back((character.id >> 16) & 0xFF);
+        data.push_back((character.id >> 8) & 0xFF);
+        data.push_back(character.id & 0xFF);
+
+        // Serialize name (null-terminated string)
+        data.insert(data.end(), character.name.begin(), character.name.end());
+        data.push_back(0); // Null terminator
+
+        // Serialize vocation (null-terminated string)
+        data.insert(data.end(), character.vocation.begin(), character.vocation.end());
+        data.push_back(0); // Null terminator
+
+        // Serialize level (4 bytes, big-endian)
+        data.push_back((character.level >> 24) & 0xFF);
+        data.push_back((character.level >> 16) & 0xFF);
+        data.push_back((character.level >> 8) & 0xFF);
+        data.push_back(character.level & 0xFF);
+    }
+
+    spdlog::info("Created CharacterListResponse with {} characters.", response.numCharacters);
+    return data;
+}
+
+std::vector<uint8_t> CharacterProtocol::createCharacterSelectionSuccess(uint32_t characterId) {
+    CharacterSelectionSuccessResponse response;
+    response.characterId = characterId;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+
+    // Serialize characterId (4 bytes, big-endian)
+    data.push_back((response.characterId >> 24) & 0xFF);
+    data.push_back((response.characterId >> 16) & 0xFF);
+    data.push_back((response.characterId >> 8) & 0xFF);
+    data.push_back(response.characterId & 0xFF);
+
+    spdlog::info("Created CharacterSelectionSuccessResponse: characterId = {}", response.characterId);
+    return data;
+}
+
+std::vector<uint8_t> CharacterProtocol::createCharacterSelectionFailure(uint8_t errorCode) {
+    CharacterSelectionFailureResponse response;
+    response.errorCode = errorCode;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+    data.push_back(response.errorCode);
+
+    spdlog::info("Created CharacterSelectionFailureResponse: errorCode = {}", static_cast<int>(response.errorCode));
+    return data;
+}
+
+std::vector<uint8_t> CharacterProtocol::createCharacterCreationSuccess(uint32_t characterId) {
+    CharacterCreationSuccessResponse response;
+    response.characterId = characterId;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+
+    // Serialize characterId (4 bytes, big-endian)
+    data.push_back((response.characterId >> 24) & 0xFF);
+    data.push_back((response.characterId >> 16) & 0xFF);
+    data.push_back((response.characterId >> 8) & 0xFF);
+    data.push_back(response.characterId & 0xFF);
+
+    spdlog::info("Created CharacterCreationSuccessResponse: characterId = {}", response.characterId);
+    return data;
+}
+
+std::vector<uint8_t> CharacterProtocol::createCharacterCreationFailure(uint8_t errorCode) {
+    CharacterCreationFailureResponse response;
+    response.errorCode = errorCode;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+    data.push_back(response.errorCode);
+
+    spdlog::info("Created CharacterCreationFailureResponse: errorCode = {}", static_cast<int>(response.errorCode));
+    return data;
 }

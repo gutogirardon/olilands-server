@@ -1,6 +1,4 @@
 #include "loginprotocol.h"
-#include "protocolenum.h"
-
 
 ProtocolCommand LoginProtocol::getCommandFromMessage(const std::vector<uint8_t>& message) {
     return extractCommandFromMessage(message);  // Chama o método protegido da classe base
@@ -28,7 +26,15 @@ PlayerLoginInfo LoginProtocol::handleLoginRequest(const std::vector<uint8_t>& me
 }
 
 void LoginProtocol::handleProtocolCommand(const std::vector<uint8_t>& message) {
-    switch (ProtocolCommand command = extractCommandFromMessage(message)) {
+    ProtocolCommand command;
+    try {
+        command = extractCommandFromMessage(message);
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to extract command: {}", e.what());
+        return;
+    }
+
+    switch (command) {
         case ProtocolCommand::LOGIN:
             handleLoginRequest(message);
             break;
@@ -44,4 +50,30 @@ std::string LoginProtocol::extractDataString(const std::vector<uint8_t>& message
         length++;
     }
     return {reinterpret_cast<const char*>(&message[start]), length};
+}
+
+std::vector<uint8_t> LoginProtocol::createLoginSuccess(uint16_t accountId) {
+    LoginSuccessResponse response;
+    response.accountId = accountId;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+
+    data.push_back((response.accountId >> 8) & 0xFF);
+    data.push_back(response.accountId & 0xFF);
+
+    spdlog::info("Created LoginSuccessResponse: accountId = {}", response.accountId);
+    return data;
+}
+
+std::vector<uint8_t> LoginProtocol::createLoginFailure(uint8_t errorCode) {
+    LoginFailureResponse response;
+    response.errorCode = errorCode;
+
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(response.command));
+    data.push_back(response.errorCode);
+
+    spdlog::info("Created LoginFailureResponse: errorCode = {}", static_cast<int>(response.errorCode));
+    return data;
 }

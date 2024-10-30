@@ -113,7 +113,12 @@ void Session::handleDisconnection(const boost::system::error_code& ec) {
     } else {
         spdlog::error("Error on read: {}", ec.message());
     }
-    sessionManager_.removeSession(player_id_);
+
+    if (player_session_state_ == State::InGame) {
+        sessionManager_.removeSession(player_id_);
+        spdlog::info("Session: Removed session from SessionManager for player_id_ {}", player_id_);
+    }
+
     socket_.close();
 }
 
@@ -125,10 +130,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
         case ProtocolCommand::REQUEST_CHARACTER_LIST: {
             PlayerManager playerManager(dbManager_);
             std::vector<CharacterInfo> characters = playerManager.getCharactersForAccount(account_id_);
-            std::string characterListMessage = "CharacterList|";
-            for (const auto& character : characters) {
-                characterListMessage += character.name + "," + character.vocation + "," + std::to_string(character.level) + ";";
-            }
+            std::vector<uint8_t> characterListMessage = characterProtocol.createCharacterList(characters);
             sendDataToClient(characterListMessage);
             receiveClientData();
             break;
@@ -140,31 +142,44 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
 
             if (!characterInfo.name.empty()) {
                 spdlog::info("Character {} selected by user {}", characterInfo.name, username_);
-                sessionManager_.addSession(player_id_, shared_from_this());
+
+                // Obter a posição do jogador antes de definir player_id_
                 auto [pos_x, pos_y, pos_z] = playerManager.getPlayerPosition(characterInfo.id);
 
                 if (pos_x != 0 || pos_y != 0 || pos_z != 0) {
                     is_position_valid = true;
                     world_.updatePlayerPosition(characterInfo.id, pos_x, pos_y);
+
+                    // Definir player_id_ antes de adicionar a sessão
                     player_id_ = characterInfo.id;
+                    spdlog::info("Session: player_id_ set to {}", player_id_);
+
+                    // Adicionar a sessão ao SessionManager com player_id_ correto
+                    sessionManager_.addSession(player_id_, shared_from_this());
+                    spdlog::info("Session: Registered session in SessionManager for player_id_ {}", player_id_);
+
                     player_session_state_ = State::InGame;
 
                     // Inicia o temporizador para atualização de posição no banco
                     startPositionUpdateTimer();
 
-                    sendDataToClient("CharacterSelected|" + characterInfo.name + "|" +
-                                                                    std::to_string(pos_x) + "," +
-                                                                    std::to_string(pos_y) + "," +
-                                                                    std::to_string(pos_z));
-
+                    // Crie a resposta binária de seleção bem-sucedida
+                    std::vector<uint8_t> selectionSuccessMessage = characterProtocol.createCharacterSelectionSuccess(characterInfo.id);
+                    sendDataToClient(selectionSuccessMessage);
                 } else {
                     spdlog::warn("Invalid position for character {}: ({}, {}, {})", characterInfo.name, pos_x, pos_y, pos_z);
-                    sendDataToClient("CharacterSelectionFailed");
+                    
+                    // Crie a resposta binária de seleção falhada
+                    std::vector<uint8_t> selectionFailureMessage = characterProtocol.createCharacterSelectionFailure(2); // Código de erro
+                    sendDataToClient(selectionFailureMessage);
                 }
                 receiveClientData();
             } else {
                 spdlog::error("Character {} not found for account {}", selectedCharacter.name, account_id_);
-                sendDataToClient("CharacterSelectionFailed");
+                
+                // Crie a resposta binária de seleção falhada
+                std::vector<uint8_t> selectionFailureMessage = characterProtocol.createCharacterSelectionFailure(1); // Código de erro
+                sendDataToClient(selectionFailureMessage);
                 receiveClientData();
             }
             break;
@@ -174,10 +189,19 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
             PlayerManager playerManager(dbManager_);
             if (playerManager.createCharacter(creationInfo.name, creationInfo.vocation, account_id_)) {
                 spdlog::info("Character created successfully.");
-                sendDataToClient("Character created successfully");
+                
+                // Obtenha o ID do novo personagem criado
+                CharacterInfo newCharacter = playerManager.getCharacterInfo(creationInfo.name, account_id_);
+
+                // Crie a resposta binária de criação bem-sucedida
+                std::vector<uint8_t> creationSuccessMessage = characterProtocol.createCharacterCreationSuccess(newCharacter.id);
+                sendDataToClient(creationSuccessMessage);
             } else {
                 spdlog::error("Character creation failed.");
-                sendDataToClient("Character creation failed");
+                
+                // Crie a resposta binária de criação falhada
+                std::vector<uint8_t> creationFailureMessage = characterProtocol.createCharacterCreationFailure(1); // Código de erro
+                sendDataToClient(creationFailureMessage);
             }
             receiveClientData();
             break;
@@ -199,7 +223,6 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
     ProtocolCommand command = movementProtocol.getCommandFromMessage(message);
 
     if (command == ProtocolCommand::MOVE_CHARACTER) {
-        //auto [current_x, current_y, current_z] = world_.getPlayerPosition(player_id_);
         auto [new_x, new_y] = movementProtocol.extractMovementData(message);
 
         // Verifica se a nova posição é caminhável
@@ -211,13 +234,17 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
             auto [updated_x, updated_y, updated_z] = world_.getPlayerPosition(player_id_);
 
             // Cria a mensagem de confirmação de movimento
-            std::string confirmationMessage = "MovementConfirmed|" +
-                std::to_string(updated_x) + "," +
-                std::to_string(updated_y) + "," +
-                std::to_string(updated_z);
+            std::vector<uint8_t> movementConfirmedMessage = {static_cast<uint8_t>(ProtocolCommand::MOVEMENT_CONFIRMED)};
+            // Serialize updated_x, updated_y, updated_z as uint16_t each
+            movementConfirmedMessage.push_back((updated_x >> 8) & 0xFF);
+            movementConfirmedMessage.push_back(updated_x & 0xFF);
+            movementConfirmedMessage.push_back((updated_y >> 8) & 0xFF);
+            movementConfirmedMessage.push_back(updated_y & 0xFF);
+            movementConfirmedMessage.push_back((updated_z >> 8) & 0xFF);
+            movementConfirmedMessage.push_back(updated_z & 0xFF);
 
             // Envia a confirmação de movimento ao cliente
-            sendDataToClient(confirmationMessage);
+            sendDataToClient(movementConfirmedMessage);
 
             // Envia a atualização de posição para jogadores próximos
             std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 2000); //@todo ver que tamanho vamos usar
@@ -229,20 +256,23 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
                 auto session = sessionManager_.getSession(nearbyPlayerId);
                 if (session) {
                     session->sendDataToClient(positionUpdateMessage);
+                    spdlog::debug("Enviado update de posição para playerId {}", nearbyPlayerId);
+                } else {
+                    spdlog::debug("Não encontrou sessão para playerId {}", nearbyPlayerId);
                 }
             }
 
             spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
         } else {
             spdlog::warn("Player {} attempted to move to invalid position ({}, {})", player_id_, new_x, new_y);
-            // Opcional: Enviar mensagem ao cliente informando que o movimento não é permitido
-            sendDataToClient("MovementBlocked");
+            // Crie a resposta binária de movimento bloqueado
+            std::vector<uint8_t> movementBlockedMessage = {static_cast<uint8_t>(ProtocolCommand::MOVEMENT_BLOCKED)};
+            sendDataToClient(movementBlockedMessage);
         }
 
         receiveClientData();
     }
 }
-
 
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     CharacterProtocol characterProtocol;
@@ -252,21 +282,15 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
         case ProtocolCommand::LOGOUT: {
             savePlayerPosition();
             spdlog::info("Player logged out.");
+            // Opcional: Enviar uma confirmação de logout
+            // Por exemplo, adicionar um novo ProtocolCommand::LOGOUT_CONFIRMATION
             socket_.close();
             break;
         }
         case ProtocolCommand::PING: {
-            auto pongMessage = std::make_shared<std::string>("Pong");
-            auto self = shared_from_this();
-            async_write(socket_, boost::asio::buffer(*pongMessage),
-                [this, self, pongMessage](boost::system::error_code ec, std::size_t /*length*/) {
-                    if (!ec) {
-                        receiveClientData();
-                    } else {
-                        spdlog::error("Error sending pong message: {}", ec.message());
-                    }
-                }
-            );
+            // Crie a resposta binária de pong
+            std::vector<uint8_t> pongMessage = {static_cast<uint8_t>(ProtocolCommand::PONG)};
+            sendDataToClient(pongMessage);
             break;
         }
         case ProtocolCommand::MOVE_CHARACTER: {
@@ -303,35 +327,20 @@ void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
         account_id_ = account_id;
         username_ = credentials.username;
 
-        auto successMessage = std::make_shared<std::string>("Login successful");
-        auto self = shared_from_this();
-        boost::asio::async_write(socket_, boost::asio::buffer(*successMessage),
-            [this, self, successMessage](boost::system::error_code ec, std::size_t /*length*/) {
-                if (!ec) {
-                    spdlog::info("Login success message sent to client.");
-                    receiveClientData();
-                } else {
-                    spdlog::error("Error sending login success message: {}", ec.message());
-                }
-            }
-        );
+        // Crie a resposta binária de sucesso
+        std::vector<uint8_t> successMessage = login_protocol.createLoginSuccess(static_cast<uint16_t>(account_id));
+        sendDataToClient(successMessage);
+        
+        receiveClientData();
     } else {
         spdlog::error("Authentication failed for player: {}", credentials.username);
+        
+        // Crie a resposta binária de falha
+        std::vector<uint8_t> failureMessage = login_protocol.createLoginFailure(1); // 1 pode ser um código de erro específico
+        sendDataToClient(failureMessage);
+        
         socket_.close();
     }
-}
-
-void Session::sendDataToClient(const std::string& message) {
-    auto self = shared_from_this();
-    auto msg = std::make_shared<std::string>(message);
-    boost::asio::async_write(socket_, boost::asio::buffer(*msg),
-        [this, self, msg](boost::system::error_code ec, std::size_t /*length*/) {
-            if (!ec) {
-                // Nada a fazer aqui
-            } else {
-                spdlog::error("Error on write: {}", ec.message());
-            }
-        });
 }
 
 void Session::sendDataToClient(const std::vector<uint8_t>& message) {

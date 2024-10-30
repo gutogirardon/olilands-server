@@ -17,8 +17,7 @@ std::pair<int, int> MovementProtocol::extractMovementData(const std::vector<uint
     }
     int x = 0, y = 0;
     if (message.size() == 3) {
-        // Formato antigo: x e y em 1 byte cada (int8_t)
-        x = static_cast<int8_t>(message[1]);  // Interpreta como número com sinal (-128 a 127)
+        x = static_cast<int8_t>(message[1]);
         y = static_cast<int8_t>(message[2]);
         spdlog::info("Extracted movement coordinates (legacy format): x = {}, y = {}", x, y);
     } else if (message.size() >= 5) {
