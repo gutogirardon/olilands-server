@@ -59,7 +59,7 @@ public:
 
     // Funções para criar respostas binárias
     std::vector<uint8_t> createCharacterList(const std::vector<CharacterInfo>& characters);
-    std::vector<uint8_t> createCharacterSelectionSuccess(uint32_t characterId);
+    std::vector<uint8_t> createCharacterSelectionSuccess(uint32_t characterId, int posX, int posY, int posZ);
     std::vector<uint8_t> createCharacterSelectionFailure(uint8_t errorCode);
     std::vector<uint8_t> createCharacterCreationSuccess(uint32_t characterId);
     std::vector<uint8_t> createCharacterCreationFailure(uint8_t errorCode);

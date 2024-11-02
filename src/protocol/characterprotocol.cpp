@@ -143,7 +143,7 @@ std::vector<uint8_t> CharacterProtocol::createCharacterList(const std::vector<Ch
     return data;
 }
 
-std::vector<uint8_t> CharacterProtocol::createCharacterSelectionSuccess(uint32_t characterId) {
+std::vector<uint8_t> CharacterProtocol::createCharacterSelectionSuccess(uint32_t characterId, int posX, int posY, int posZ) {
     CharacterSelectionSuccessResponse response;
     response.characterId = characterId;
 
@@ -156,9 +156,22 @@ std::vector<uint8_t> CharacterProtocol::createCharacterSelectionSuccess(uint32_t
     data.push_back((response.characterId >> 8) & 0xFF);
     data.push_back(response.characterId & 0xFF);
 
-    spdlog::info("Created CharacterSelectionSuccessResponse: characterId = {}", response.characterId);
+    // Serialize posX (2 bytes, big-endian)
+    data.push_back((posX >> 8) & 0xFF);
+    data.push_back(posX & 0xFF);
+
+    // Serialize posY (2 bytes, big-endian)
+    data.push_back((posY >> 8) & 0xFF);
+    data.push_back(posY & 0xFF);
+
+    // Serialize posZ (2 bytes, big-endian)
+    data.push_back((posZ >> 8) & 0xFF);
+    data.push_back(posZ & 0xFF);
+
+    spdlog::info("Created CharacterSelectionSuccessResponse: characterId = {}, posX = {}, posY = {}, posZ = {}", characterId, posX, posY, posZ);
     return data;
 }
+
 
 std::vector<uint8_t> CharacterProtocol::createCharacterSelectionFailure(uint8_t errorCode) {
     CharacterSelectionFailureResponse response;

@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <memory>
 #include <mutex>
+#include <vector>
+
 
 // Forward declaration da classe Session
 class Session;

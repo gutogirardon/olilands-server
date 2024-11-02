@@ -167,12 +167,12 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
                     // **Enviar Informações de Jogadores Próximos**
                     sendNearbyPlayersInfo();
 
-                    // Crie a resposta binária de seleção bem-sucedida
-                    std::vector<uint8_t> selectionSuccessMessage = characterProtocol.createCharacterSelectionSuccess(characterInfo.id);
+                    // Crie a resposta binária de seleção bem-sucedida com a posição do jogador
+                    std::vector<uint8_t> selectionSuccessMessage = characterProtocol.createCharacterSelectionSuccess(characterInfo.id, pos_x, pos_y, pos_z);
                     sendDataToClient(selectionSuccessMessage);
                 } else {
                     spdlog::warn("Invalid position for character {}: ({}, {}, {})", characterInfo.name, pos_x, pos_y, pos_z);
-                    
+
                     // Crie a resposta binária de seleção falhada
                     std::vector<uint8_t> selectionFailureMessage = characterProtocol.createCharacterSelectionFailure(2); // Código de erro
                     sendDataToClient(selectionFailureMessage);
@@ -180,7 +180,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
                 receiveClientData();
             } else {
                 spdlog::error("Character {} not found for account {}", selectedCharacter.name, account_id_);
-                
+
                 // Crie a resposta binária de seleção falhada
                 std::vector<uint8_t> selectionFailureMessage = characterProtocol.createCharacterSelectionFailure(1); // Código de erro
                 sendDataToClient(selectionFailureMessage);
@@ -278,8 +278,7 @@ std::vector<uint8_t> Session::createOtherPlayerInfoMessage(const OtherPlayerInfo
 void Session::sendNearbyPlayersInfo() {
     if (!is_position_valid) return;
 
-    // Definir o range apropriado (exemplo: 2000 unidades)
-    int range = 2000;
+    int range = 500;
     std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, range);
 
     PlayerManager playerManager(dbManager_);
@@ -379,7 +378,7 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
             sendDataToClient(movementConfirmedMessage);
 
             // Define o range de proximidade
-            int range = 2000;
+            int range = 500;
             int rangeSquared = range * range;
 
             // Envia a atualização de posição para jogadores próximos
