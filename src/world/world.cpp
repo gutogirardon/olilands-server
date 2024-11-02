@@ -1,4 +1,8 @@
+// world.cpp
 #include "world.h"
+#include <spdlog/spdlog.h>
+#include <cmath>
+#include <algorithm>
 
 World::World() = default;
 
@@ -26,4 +30,22 @@ std::vector<int> World::getPlayersInProximity(int playerId, int range) const {
 
 bool World::isPositionWalkable(int x, int y) const {
     return mapManager.isPositionWalkable(x, y);
+}
+
+// **Implementação dos Métodos de Estado**
+void World::setPlayerState(int playerId, PlayerState state) {
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    playerStates_[playerId] = state;
+    spdlog::info("Player {} state set to {}", playerId, static_cast<int>(state));
+}
+
+PlayerState World::getPlayerState(int playerId) const {
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    auto it = playerStates_.find(playerId);
+    if (it != playerStates_.end()) {
+        return it->second;
+    } else {
+        spdlog::warn("Player {} state not found. Defaulting to Idle.", playerId);
+        return PlayerState::Idle;
+    }
 }

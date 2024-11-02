@@ -24,7 +24,11 @@ enum class ProtocolCommand : uint8_t {
     CHARACTER_CREATION_FAILURE = 107,  // Resposta de criação de personagem falhada
     MOVEMENT_CONFIRMED = 108,           // Resposta de movimento confirmado
     MOVEMENT_BLOCKED = 109,             // Resposta de movimento bloqueado
-    PONG = 110                         // Resposta de pong
+    PONG = 110,                         // Resposta de pong
+
+    OTHER_PLAYER_INFO = 201,            // Informações iniciais de outros jogadores
+    OTHER_PLAYER_UPDATE = 202,          // Atualizações de posição de outros jogadores
+    OTHER_PLAYER_DISCONNECTED = 203     // Notificação de desconexão de outros jogadores
 };
 
 #endif // PROTOCOL_ENUM_H

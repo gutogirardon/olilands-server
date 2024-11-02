@@ -14,6 +14,7 @@ public:
     void addSession(int playerId, std::shared_ptr<Session> session);
     void removeSession(int playerId);
     std::shared_ptr<Session> getSession(int playerId);
+    std::vector<std::shared_ptr<Session>> getAllSessions();
 
 private:
     std::unordered_map<int, std::weak_ptr<Session>> sessions_;

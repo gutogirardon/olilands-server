@@ -1,3 +1,4 @@
+// mapmanager.cpp
 #include "mapmanager.h"
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -54,7 +55,7 @@ bool MapManager::isPositionWalkable(int x, int y) const {
     if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
         return collisionGrid[y][x];
     }
-    return false; // Posições fora do mapa nao anda
+    return false; // Posições fora do mapa não são caminháveis
 }
 
 const std::vector<TileLayer>& MapManager::getTileLayers() const {
@@ -87,14 +88,16 @@ std::vector<int> MapManager::getPlayersInProximity(int playerId, int range) cons
     int x = it->second.first;
     int y = it->second.second;
 
+    int rangeSquared = range * range; // Calcular o quadrado do range uma vez
+
     for (const auto& [otherPlayerId, position] : playerPositions) {
         if (otherPlayerId == playerId) continue;
 
         int dx = position.first - x;
         int dy = position.second - y;
-        int distance = static_cast<int>(std::sqrt(dx * dx + dy * dy));
+        int distanceSquared = dx * dx + dy * dy;
 
-        if (distance <= range) {
+        if (distanceSquared <= rangeSquared) { // Comparar com o quadrado do range
             nearbyPlayers.push_back(otherPlayerId);
         }
     }

@@ -4,6 +4,8 @@
 PlayerManager::PlayerManager(DatabaseManager& dbManager)
     : dbManager_(dbManager) {}
 
+PlayerManager::~PlayerManager() {}
+
 bool PlayerManager::createCharacter(const std::string& name, const std::string& vocation, int account_id) {
     MYSQL* conn = dbManager_.getConnection();
 
@@ -185,4 +187,66 @@ bool PlayerManager::updatePlayerPosition(int player_id, int pos_x, int pos_y, in
 
     spdlog::info("Updated position for player {} to ({}, {}, {})", player_id, pos_x, pos_y, pos_z);
     return true;
+}
+
+CharacterInfo PlayerManager::getCharacterInfoById(int player_id) {
+    CharacterInfo charInfo;
+    MYSQL* conn = dbManager_.getConnection();
+
+    if (!conn) {
+        spdlog::error("No available database connection.");
+        throw std::runtime_error("Database connection failed.");
+    }
+
+    std::string query = "SELECT id, name, vocation, account_id, health, max_health, mana, max_mana, "
+                        "look_body, look_feet, look_head, look_legs, look_type, magic_level, level, experience, "
+                        "pos_x, pos_y, pos_z, gender, blessed, balance, hours_played "
+                        "FROM players WHERE id = " + std::to_string(player_id) + " LIMIT 1";
+
+    if (mysql_query(conn, query.c_str())) {
+        spdlog::error("MySQL query error: {}", mysql_error(conn));
+        throw std::runtime_error("MySQL query failed.");
+    }
+
+    MYSQL_RES* result = mysql_store_result(conn);
+    if (result == nullptr) {
+        spdlog::error("MySQL store result error: {}", mysql_error(conn));
+        throw std::runtime_error("MySQL store result failed.");
+    }
+
+    MYSQL_ROW row = mysql_fetch_row(result);
+    if (row) {
+        charInfo.id = std::stoi(row[0]);
+        charInfo.name = row[1];
+        charInfo.vocation = row[2];
+        charInfo.account_id = std::stoi(row[3]);
+        charInfo.health = std::stoi(row[4]);
+        charInfo.max_health = std::stoi(row[5]);
+        charInfo.mana = std::stoi(row[6]);
+        charInfo.max_mana = std::stoi(row[7]);
+        charInfo.look_body = std::stoi(row[8]);
+        charInfo.look_feet = std::stoi(row[9]);
+        charInfo.look_head = std::stoi(row[10]);
+        charInfo.look_legs = std::stoi(row[11]);
+        charInfo.look_type = std::stoi(row[12]);
+        charInfo.magic_level = std::stoi(row[13]);
+        charInfo.level = std::stoi(row[14]);
+        charInfo.experience = std::stoll(row[15]);
+        charInfo.pos_x = std::stoi(row[16]);
+        charInfo.pos_y = std::stoi(row[17]);
+        charInfo.pos_z = std::stoi(row[18]);
+        charInfo.gender = row[19];
+        charInfo.blessed = std::stoi(row[20]) != 0;
+        charInfo.balance = std::stod(row[21]);
+        charInfo.hours_played = std::stoi(row[22]);
+    } else {
+        spdlog::error("Character ID {} not found.", player_id);
+        mysql_free_result(result);
+        dbManager_.releaseConnection(conn);
+        throw std::runtime_error("Character not found.");
+    }
+
+    mysql_free_result(result);
+    dbManager_.releaseConnection(conn);
+    return charInfo;
 }

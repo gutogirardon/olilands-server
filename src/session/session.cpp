@@ -1,6 +1,7 @@
 #include "session.h"
 #include "sessionmanager.h"
 #include "models/characterinfo.h"
+#include "models/otherplayerinfo.h"
 #include "protocol/loginprotocol.h"
 #include "protocol/movementprotocol.h"
 #include "protocol/characterprotocol.h"
@@ -163,6 +164,9 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
                     // Inicia o temporizador para atualização de posição no banco
                     startPositionUpdateTimer();
 
+                    // **Enviar Informações de Jogadores Próximos**
+                    sendNearbyPlayersInfo();
+
                     // Crie a resposta binária de seleção bem-sucedida
                     std::vector<uint8_t> selectionSuccessMessage = characterProtocol.createCharacterSelectionSuccess(characterInfo.id);
                     sendDataToClient(selectionSuccessMessage);
@@ -213,6 +217,131 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
     }
 }
 
+std::string Session::getPlayerName(int playerId) const {
+    PlayerManager playerManager(dbManager_);
+    try {
+        CharacterInfo characterInfo = playerManager.getCharacterInfoById(playerId);
+        return characterInfo.name;
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to get player name for playerId {}: {}", playerId, e.what());
+        return "Unknown";
+    }
+}
+
+uint8_t Session::getPlayerState(int playerId) const {
+    // Supondo que o estado do jogador esteja sendo gerenciado na classe World
+    // Aqui, retornamos um estado fixo como exemplo (0: Idle)
+    // Você deve implementar a lógica real de estado conforme sua aplicação
+    return 0; // Idle
+}
+
+std::vector<uint8_t> Session::createOtherPlayerInfoMessage(const OtherPlayerInfo& info) {
+    std::vector<uint8_t> data;
+    data.push_back(static_cast<uint8_t>(ProtocolCommand::OTHER_PLAYER_INFO));
+
+    // playerId (4 bytes)
+    data.push_back((info.playerId >> 24) & 0xFF);
+    data.push_back((info.playerId >> 16) & 0xFF);
+    data.push_back((info.playerId >> 8) & 0xFF);
+    data.push_back(info.playerId & 0xFF);
+
+    // name (32 bytes, null-terminated)
+    for(int i = 0; i < 32; ++i){
+        if(i < info.name.size())
+            data.push_back(static_cast<uint8_t>(info.name[i]));
+        else
+            data.push_back(0);
+    }
+
+    // positionX (4 bytes float)
+    float posX = info.positionX;
+    uint8_t* posXBytes = reinterpret_cast<uint8_t*>(&posX);
+    data.insert(data.end(), posXBytes, posXBytes + sizeof(float));
+
+    // positionY (4 bytes float)
+    float posY = info.positionY;
+    uint8_t* posYBytes = reinterpret_cast<uint8_t*>(&posY);
+    data.insert(data.end(), posYBytes, posYBytes + sizeof(float));
+
+    // positionZ (4 bytes float)
+    float posZ = info.positionZ;
+    uint8_t* posZBytes = reinterpret_cast<uint8_t*>(&posZ);
+    data.insert(data.end(), posZBytes, posZBytes + sizeof(float));
+
+    // state (1 byte)
+    data.push_back(info.state);
+
+    spdlog::info("Created OTHER_PLAYER_INFO message for playerId {}", info.playerId);
+    return data;
+}
+
+void Session::sendNearbyPlayersInfo() {
+    if (!is_position_valid) return;
+
+    // Definir o range apropriado (exemplo: 2000 unidades)
+    int range = 2000;
+    std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, range);
+
+    PlayerManager playerManager(dbManager_);
+
+    for (int otherPlayerId : nearbyPlayers) {
+        if (otherPlayerId == player_id_) continue; // Evitar enviar para si mesmo
+
+        try {
+            CharacterInfo characterInfo = playerManager.getCharacterInfoById(otherPlayerId);
+            auto [x, y, z] = world_.getPlayerPosition(otherPlayerId);
+            uint8_t state = getPlayerState(otherPlayerId);
+
+            OtherPlayerInfo info;
+            info.playerId = otherPlayerId;
+            info.name = characterInfo.name;
+            info.positionX = static_cast<float>(x);
+            info.positionY = static_cast<float>(y);
+            info.positionZ = static_cast<float>(z);
+            info.state = state;
+
+            std::vector<uint8_t> message = createOtherPlayerInfoMessage(info);
+            sendDataToClient(message);
+
+            spdlog::debug("Sent OTHER_PLAYER_INFO to playerId {}", player_id_);
+        } catch (const std::exception& e) {
+            spdlog::error("Error sending OTHER_PLAYER_INFO for playerId {}: {}", otherPlayerId, e.what());
+            continue;
+        }
+    }
+
+    // **Broadcast para Outros Jogadores Sobre Este Jogador**
+    broadcastNewPlayerInfo();
+}
+
+void Session::broadcastNewPlayerInfo() {
+    // Criar a mensagem de informações deste jogador
+    OtherPlayerInfo newPlayerInfo;
+    newPlayerInfo.playerId = player_id_;
+    newPlayerInfo.name = username_;
+    auto [x, y, z] = world_.getPlayerPosition(player_id_);
+    newPlayerInfo.positionX = static_cast<float>(x);
+    newPlayerInfo.positionY = static_cast<float>(y);
+    newPlayerInfo.positionZ = static_cast<float>(z);
+    newPlayerInfo.state = getPlayerState(player_id_);
+
+    std::vector<uint8_t> message = createOtherPlayerInfoMessage(newPlayerInfo);
+
+    // Enviar para todas as outras sessões
+    // Supondo que você tenha acesso ao `SessionManager` aqui
+    // Caso contrário, você precisará adaptar para acessar todas as sessões
+    std::vector<std::shared_ptr<Session>> allSessions = sessionManager_.getAllSessions();
+
+    for (auto& session : allSessions) {
+        if (session->getPlayerId() == player_id_) continue; // Evitar enviar para si mesmo
+
+        session->sendDataToClient(message);
+        spdlog::debug("Broadcasted OTHER_PLAYER_INFO to playerId {}", session->getPlayerId());
+    }
+
+    spdlog::info("Broadcasted new player info for playerId {}", player_id_);
+}
+
 void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
     if (!is_position_valid) {
         spdlog::warn("Invalid position, cannot move playerId {}", player_id_);
@@ -235,30 +364,41 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
 
             // Cria a mensagem de confirmação de movimento
             std::vector<uint8_t> movementConfirmedMessage = {static_cast<uint8_t>(ProtocolCommand::MOVEMENT_CONFIRMED)};
-            // Serialize updated_x, updated_y, updated_z as uint16_t each
-            movementConfirmedMessage.push_back((updated_x >> 8) & 0xFF);
-            movementConfirmedMessage.push_back(updated_x & 0xFF);
-            movementConfirmedMessage.push_back((updated_y >> 8) & 0xFF);
-            movementConfirmedMessage.push_back(updated_y & 0xFF);
-            movementConfirmedMessage.push_back((updated_z >> 8) & 0xFF);
-            movementConfirmedMessage.push_back(updated_z & 0xFF);
+            // Serialize updated_x, updated_y, updated_z como float (4 bytes cada)
+            float posX = static_cast<float>(updated_x);
+            float posY = static_cast<float>(updated_y);
+            float posZ = static_cast<float>(updated_z);
+            uint8_t* posXBytes = reinterpret_cast<uint8_t*>(&posX);
+            uint8_t* posYBytes = reinterpret_cast<uint8_t*>(&posY);
+            uint8_t* posZBytes = reinterpret_cast<uint8_t*>(&posZ);
+            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posXBytes, posXBytes + sizeof(float));
+            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posYBytes, posYBytes + sizeof(float));
+            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posZBytes, posZBytes + sizeof(float));
 
             // Envia a confirmação de movimento ao cliente
             sendDataToClient(movementConfirmedMessage);
 
+            // Define o range de proximidade
+            int range = 2000;
+            int rangeSquared = range * range;
+
             // Envia a atualização de posição para jogadores próximos
-            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, 2000); //@todo ver que tamanho vamos usar
+            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, range);
             auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, updated_x, updated_y);
+
+            PlayerManager playerManager(dbManager_);
 
             for (int nearbyPlayerId : nearbyPlayers) {
                 if (nearbyPlayerId == player_id_) continue; // Evita enviar para si mesmo
 
                 auto session = sessionManager_.getSession(nearbyPlayerId);
                 if (session) {
+                    // **Otimização: Evitar Cálculo de Distância Dupla**
+                    // Supondo que `getPlayersInProximity` já filtrou por range
                     session->sendDataToClient(positionUpdateMessage);
-                    spdlog::debug("Enviado update de posição para playerId {}", nearbyPlayerId);
+                    spdlog::debug("Sent OTHER_PLAYER_UPDATE to playerId {}", nearbyPlayerId);
                 } else {
-                    spdlog::debug("Não encontrou sessão para playerId {}", nearbyPlayerId);
+                    spdlog::debug("No session found for playerId {}", nearbyPlayerId);
                 }
             }
 

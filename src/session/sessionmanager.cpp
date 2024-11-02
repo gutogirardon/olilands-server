@@ -30,3 +30,14 @@ std::shared_ptr<Session> SessionManager::getSession(int playerId) {
     }
     return nullptr;
 }
+
+std::vector<std::shared_ptr<Session>> SessionManager::getAllSessions() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::shared_ptr<Session>> activeSessions;
+    for (auto& [playerId, weakSession] : sessions_) {
+        if (auto session = weakSession.lock()) {
+            activeSessions.push_back(session);
+        }
+    }
+    return activeSessions;
+}
