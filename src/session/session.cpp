@@ -379,13 +379,10 @@ void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
 
             // Define o range de proximidade
             int range = 500;
-            int rangeSquared = range * range;
 
             // Envia a atualização de posição para jogadores próximos
             std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, range);
             auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, updated_x, updated_y);
-
-            PlayerManager playerManager(dbManager_);
 
             for (int nearbyPlayerId : nearbyPlayers) {
                 if (nearbyPlayerId == player_id_) continue; // Evita enviar para si mesmo

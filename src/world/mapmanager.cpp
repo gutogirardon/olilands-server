@@ -64,7 +64,7 @@ const std::vector<TileLayer>& MapManager::getTileLayers() const {
 
 void MapManager::updatePlayerPosition(int playerId, int x, int y) {
     playerPositions[playerId] = {x, y};
-    spdlog::info("Updated position for playerId {}: ({}, {})", playerId, x, y);
+    spdlog::debug("Updated position for playerId {}: ({}, {})", playerId, x, y);
 }
 
 std::tuple<int, int, int> MapManager::getPlayerPosition(int playerId) const {

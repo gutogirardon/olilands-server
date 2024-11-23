@@ -5,28 +5,32 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <string>
 #include <memory>
+#include <chrono>
 
 class ConnectionPool {
 public:
-    // Inicializa o pool com um número fixo de conexões
     ConnectionPool(const std::string& host, const std::string& user, const std::string& password,
-                   const std::string& database, unsigned int port, std::size_t poolSize);
+                  const std::string& database, unsigned int port, std::size_t poolSize, std::size_t maxPoolSize);
     ~ConnectionPool();
 
-    // Adquire uma conexão do pool
-    MYSQL* acquire();
-    // Devolve a conexão ao pool
+    MYSQL* acquire(std::chrono::milliseconds timeout = std::chrono::milliseconds(1000));
     void release(MYSQL* conn);
 
 private:
-    std::queue<MYSQL*> pool_;  // Fila de conexões disponíveis
-    std::mutex poolMutex_;     // Mutex para proteger o acesso ao pool
-    std::condition_variable poolCond_;  // Para sinalizar quando uma conexão for liberada
+    std::queue<MYSQL*> pool_;
+    std::mutex poolMutex_;
+    std::condition_variable poolCond_;
+    std::size_t currentSize_;
+    std::size_t maxSize_;
+    std::string host_;
+    std::string user_;
+    std::string password_;
+    std::string database_;
+    unsigned int port_;
 
-    // Função auxiliar para criar uma nova conexão
-    MYSQL* createConnection(const std::string& host, const std::string& user, const std::string& password,
-                            const std::string& database, unsigned int port);
+    MYSQL* createConnection();
 };
 
 #endif // CONNECTIONPOOL_H

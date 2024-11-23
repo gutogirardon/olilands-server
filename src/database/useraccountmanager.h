@@ -7,6 +7,7 @@
 class UserAccountManager {
 public:
     explicit UserAccountManager(DatabaseManager& dbManager);
+    ~UserAccountManager();
 
     // Método para validar o login do usuário
     bool validateLogin(const std::string& username, const std::string& password, int& account_id);

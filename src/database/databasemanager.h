@@ -3,6 +3,7 @@
 
 #include "connectionpool.h"
 #include "config/configmanager.h"
+#include <memory>
 
 class DatabaseManager {
 public:
@@ -11,12 +12,12 @@ public:
 
     bool connect();
     bool isConnected() const;
-    MYSQL* getConnection();
+    MYSQL* getConnection(std::chrono::milliseconds timeout = std::chrono::milliseconds(1000));
     void releaseConnection(MYSQL* conn);
 
 private:
     const ConfigManager& config_;
-    std::unique_ptr<ConnectionPool> connectionPool_;  // Usar pool de conexões
+    std::unique_ptr<ConnectionPool> connectionPool_;
 };
 
 #endif // DATABASEMANAGER_H

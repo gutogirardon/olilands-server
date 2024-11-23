@@ -32,19 +32,6 @@ std::pair<int, int> MovementProtocol::extractMovementData(const std::vector<uint
     return {x, y};
 }
 
-std::vector<uint8_t> MovementProtocol::createMovementMessage(ProtocolCommand command, int x, int y) {
-    // Cria uma mensagem com 5 bytes: comando + x_high + x_low + y_high + y_low
-    std::vector<uint8_t> message(5);
-    message[0] = static_cast<uint8_t>(command);
-    message[1] = static_cast<uint8_t>((x >> 8) & 0xFF);  // Byte alto de x
-    message[2] = static_cast<uint8_t>(x & 0xFF);         // Byte baixo de x
-    message[3] = static_cast<uint8_t>((y >> 8) & 0xFF);  // Byte alto de y
-    message[4] = static_cast<uint8_t>(y & 0xFF);         // Byte baixo de y
-
-    spdlog::info("Created movement message: Command = {}, x = {}, y = {}", static_cast<int>(command), x, y);
-    return message;
-}
-
 std::vector<uint8_t> MovementProtocol::createPositionUpdateMessage(int playerId, int x, int y) {
     // Cria uma mensagem de atualização de posição com 7 bytes: comando + playerId (2 bytes) + x (2 bytes) + y (2 bytes)
     std::vector<uint8_t> message(7);

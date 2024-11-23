@@ -10,21 +10,20 @@ bool DatabaseManager::connect() {
     connectionPool_ = std::make_unique<ConnectionPool>(
         config_.getMySQLHost(), config_.getMySQLUser(),
         config_.getMySQLPassword(), config_.getMySQLDatabase(),
-        config_.getMySQLPort(), 10  // Tamanho do pool de conexões, por exemplo, 10
+        config_.getMySQLPort(), 100, 200  // poolSize=100, maxSize=200
     );
 
-    return true;  // Considerar que a conexão foi bem-sucedida
-}
-
-MYSQL* DatabaseManager::getConnection() {
-    return connectionPool_->acquire();  // Adquirir conexão do pool
-}
-
-void DatabaseManager::releaseConnection(MYSQL* conn) {
-    connectionPool_->release(conn);  // Devolver a conexão ao pool
+    return isConnected();
 }
 
 bool DatabaseManager::isConnected() const {
-    // Verifica se o pool tem conexões ativas
     return connectionPool_ != nullptr;
+}
+
+MYSQL* DatabaseManager::getConnection(std::chrono::milliseconds timeout) {
+    return connectionPool_->acquire(timeout);
+}
+
+void DatabaseManager::releaseConnection(MYSQL* conn) {
+    connectionPool_->release(conn);
 }
