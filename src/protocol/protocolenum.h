@@ -13,6 +13,8 @@ enum class ProtocolCommand : uint8_t {
     SELECT_CHARACTER = 6,           // Comando para selecionar um personagem
     MOVE_CHARACTER = 7,             // Comando para movimentação do personagem
     UPDATE_POSITION = 8,            // Comando para atualizar a posição de um personagem
+    ATTACK = 9,                     // Comando para realizar um ataque
+
 
     // Comandos de resposta
     LOGIN_SUCCESS = 101,            // Resposta de login bem-sucedido
@@ -25,6 +27,10 @@ enum class ProtocolCommand : uint8_t {
     MOVEMENT_CONFIRMED = 108,           // Resposta de movimento confirmado
     MOVEMENT_BLOCKED = 109,             // Resposta de movimento bloqueado
     PONG = 110,                         // Resposta de pong
+
+    ATTACK_SUCCESS = 111,               // Resposta de ataque bem-sucedido
+    ATTACK_FAILURE = 112,               // Resposta de ataque falhado
+    ATTACK_NOTIFICATION = 113,          // Notificação de ataque realizado a outros jogadores
 
     OTHER_PLAYER_INFO = 201,            // Informações iniciais de outros jogadores
     OTHER_PLAYER_UPDATE = 202,          // Atualizações de posição de outros jogadores

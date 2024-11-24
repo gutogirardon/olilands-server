@@ -18,7 +18,9 @@ Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager
       sessionManager_(sessionManager),
       login_timer_(socket_.get_executor()),
       position_update_timer_(socket_.get_executor()),
-      last_saved_x_(0), last_saved_y_(0), last_saved_z_(0) {}
+      last_saved_x_(0), last_saved_y_(0), last_saved_z_(0),
+      attackHandler_(*this)
+{}
 
 void Session::beginSession() {
     try {
@@ -42,7 +44,7 @@ void Session::beginSession() {
 }
 
 void Session::startPositionUpdateTimer() {
-    if (!socket_.is_open()) return;  // Verifica se a conexão está aberta
+    if (!socket_.is_open()) return;
 
     position_update_timer_.expires_after(std::chrono::milliseconds(500));
     auto self = shared_from_this();
@@ -229,10 +231,7 @@ std::string Session::getPlayerName(int playerId) const {
 }
 
 uint8_t Session::getPlayerState(int playerId) const {
-    // Supondo que o estado do jogador esteja sendo gerenciado na classe World
-    // Aqui, retornamos um estado fixo como exemplo (0: Idle)
-    // Você deve implementar a lógica real de estado conforme sua aplicação
-    return 0; // Idle
+    return 0; //@todo retornar o estado do jogador aqui
 }
 
 std::vector<uint8_t> Session::createOtherPlayerInfoMessage(const OtherPlayerInfo& info) {
@@ -308,13 +307,10 @@ void Session::sendNearbyPlayersInfo() {
             continue;
         }
     }
-
-    // **Broadcast para Outros Jogadores Sobre Este Jogador**
     broadcastNewPlayerInfo();
 }
 
 void Session::broadcastNewPlayerInfo() {
-    // Criar a mensagem de informações deste jogador
     OtherPlayerInfo newPlayerInfo;
     newPlayerInfo.playerId = player_id_;
     newPlayerInfo.name = username_;
@@ -325,10 +321,6 @@ void Session::broadcastNewPlayerInfo() {
     newPlayerInfo.state = getPlayerState(player_id_);
 
     std::vector<uint8_t> message = createOtherPlayerInfoMessage(newPlayerInfo);
-
-    // Enviar para todas as outras sessões
-    // Supondo que você tenha acesso ao `SessionManager` aqui
-    // Caso contrário, você precisará adaptar para acessar todas as sessões
     std::vector<std::shared_ptr<Session>> allSessions = sessionManager_.getAllSessions();
 
     for (auto& session : allSessions) {
@@ -418,19 +410,20 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
         case ProtocolCommand::LOGOUT: {
             savePlayerPosition();
             spdlog::info("Player logged out.");
-            // Opcional: Enviar uma confirmação de logout
-            // Por exemplo, adicionar um novo ProtocolCommand::LOGOUT_CONFIRMATION
             socket_.close();
             break;
         }
         case ProtocolCommand::PING: {
-            // Crie a resposta binária de pong
             std::vector<uint8_t> pongMessage = {static_cast<uint8_t>(ProtocolCommand::PONG)};
             sendDataToClient(pongMessage);
             break;
         }
         case ProtocolCommand::MOVE_CHARACTER: {
             handleMovementCommands(message);
+            break;
+        }
+        case ProtocolCommand::ATTACK: {
+            attackHandler_.handleAttackCommands(message);
             break;
         }
         default: {
@@ -471,8 +464,7 @@ void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
     } else {
         spdlog::error("Authentication failed for player: {}", credentials.username);
         
-        // Crie a resposta binária de falha
-        std::vector<uint8_t> failureMessage = login_protocol.createLoginFailure(1); // 1 pode ser um código de erro específico
+        std::vector<uint8_t> failureMessage = login_protocol.createLoginFailure(1);
         sendDataToClient(failureMessage);
         
         socket_.close();
@@ -484,9 +476,7 @@ void Session::sendDataToClient(const std::vector<uint8_t>& message) {
     auto msg = std::make_shared<std::vector<uint8_t>>(message);
     boost::asio::async_write(socket_, boost::asio::buffer(*msg),
         [this, self, msg](boost::system::error_code ec, std::size_t /*length*/) {
-            if (!ec) {
-                // Nada a fazer aqui
-            } else {
+            if (ec) {
                 spdlog::error("Error on write: {}", ec.message());
             }
         });
