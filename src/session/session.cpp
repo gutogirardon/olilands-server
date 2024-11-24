@@ -1,9 +1,9 @@
+// session.cpp
+
 #include "session.h"
 #include "sessionmanager.h"
 #include "models/characterinfo.h"
 #include "models/otherplayerinfo.h"
-#include "protocol/loginprotocol.h"
-#include "protocol/movementprotocol.h"
 #include "protocol/characterprotocol.h"
 #include "database/useraccountmanager.h"
 #include "database/playermanager.h"
@@ -16,11 +16,11 @@ Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager
       dbManager_(dbManager),
       world_(world),
       sessionManager_(sessionManager),
-      login_timer_(socket_.get_executor()),
       position_update_timer_(socket_.get_executor()),
       last_saved_x_(0), last_saved_y_(0), last_saved_z_(0),
       attackHandler_(*this),
-      movementHandler_(*this, dbManager, world, sessionManager)
+      movementHandler_(*this, dbManager, world, sessionManager),
+      authHandler_(*this, dbManager, sessionManager) // Inicializa SessionAuth
 {}
 
 void Session::beginSession() {
@@ -29,19 +29,19 @@ void Session::beginSession() {
                      socket_.remote_endpoint().address().to_string(),
                      socket_.remote_endpoint().port());
 
-        login_timer_.expires_after(std::chrono::seconds(3));
-        auto self = shared_from_this();
-        login_timer_.async_wait([self](const boost::system::error_code& ec) {
-            if (!ec) {
-                self->handleLoginTimeout();
-            }
-        });
+        // Inicia o temporizador de login
+        authHandler_.startLoginTimer();
 
         receiveClientData();
     }
     catch (const std::exception& e) {
         spdlog::error("Error: {}", e.what());
     }
+}
+
+// Implementação do accessor para executor
+boost::asio::ip::tcp::socket::executor_type Session::getExecutor() {
+    return socket_.get_executor();
 }
 
 void Session::startPositionUpdateTimer() {
@@ -83,12 +83,11 @@ void Session::receiveClientData() {
     socket_.async_read_some(boost::asio::buffer(data_, max_length),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
-                login_timer_.cancel();
                 std::vector<uint8_t> message(data_, data_ + length);
 
                 switch (player_session_state_) {
                     case State::Unauthenticated:
-                        authenticatePlayer(message);
+                        authHandler_.handleAuthentication(message); // Delegação para SessionAuth
                         break;
                     case State::Authenticated:
                         handleCharacterSelectionCommands(message);
@@ -208,7 +207,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
 
                 // Crie a resposta binária de criação falhada
                 std::vector<uint8_t> creationFailureMessage = characterProtocol.createCharacterCreationFailure(1); // Código de erro
-                sendDataToClient(creationFailureMessage);
+                sendDataToClient(creationFailureMessage); // Correção: send 'creationFailureMessage'
             }
             receiveClientData();
             break;
@@ -302,7 +301,7 @@ void Session::sendNearbyPlayersInfo() {
             std::vector<uint8_t> message = createOtherPlayerInfoMessage(info);
             sendDataToClient(message);
 
-            spdlog::debug("Sent OTHER_PLAYER_INFO to playerId {}", player_id_);
+            spdlog::debug("Sent OTHER_PLAYER_INFO to playerId {}", otherPlayerId);
         } catch (const std::exception& e) {
             spdlog::error("Error sending OTHER_PLAYER_INFO for playerId {}: {}", otherPlayerId, e.what());
             continue;
@@ -366,40 +365,23 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     }
 }
 
-void Session::handleLoginTimeout() {
-    spdlog::warn("Login timeout for client");
-    boost::system::error_code ec;
-    socket_.close(ec);
-
-    if (ec) {
-        spdlog::error("Error closing socket after timeout: {}", ec.message());
-    }
+void Session::setPlayerSessionState(State state) {
+    player_session_state_ = state;
 }
 
-void Session::authenticatePlayer(const std::vector<uint8_t>& message) {
-    LoginProtocol login_protocol;
-    PlayerLoginInfo credentials = login_protocol.handleLoginRequest(message);
-    UserAccountManager userAccountManager(dbManager_);
-    int account_id = 0;
+void Session::setAccountId(int accountId) {
+    account_id_ = accountId;
+}
 
-    if (userAccountManager.validateLogin(credentials.username, credentials.password, account_id)) {
-        spdlog::info("Player authenticated: {}", credentials.username);
-        player_session_state_ = State::Authenticated;
-        account_id_ = account_id;
-        username_ = credentials.username;
+void Session::setUsername(const std::string& username) {
+    username_ = username;
+}
 
-        // Crie a resposta binária de sucesso
-        std::vector<uint8_t> successMessage = login_protocol.createLoginSuccess(static_cast<uint16_t>(account_id));
-        sendDataToClient(successMessage);
-        
-        receiveClientData();
-    } else {
-        spdlog::error("Authentication failed for player: {}", credentials.username);
-        
-        std::vector<uint8_t> failureMessage = login_protocol.createLoginFailure(1);
-        sendDataToClient(failureMessage);
-        
-        socket_.close();
+void Session::closeSocket() {
+    boost::system::error_code ec;
+    socket_.close(ec);
+    if (ec) {
+        spdlog::error("Error closing socket: {}", ec.message());
     }
 }
 
