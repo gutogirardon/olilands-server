@@ -19,7 +19,8 @@ Session::Session(boost::asio::ip::tcp::socket socket, DatabaseManager& dbManager
       login_timer_(socket_.get_executor()),
       position_update_timer_(socket_.get_executor()),
       last_saved_x_(0), last_saved_y_(0), last_saved_z_(0),
-      attackHandler_(*this)
+      attackHandler_(*this),
+      movementHandler_(*this, dbManager, world, sessionManager)
 {}
 
 void Session::beginSession() {
@@ -195,7 +196,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
             PlayerManager playerManager(dbManager_);
             if (playerManager.createCharacter(creationInfo.name, creationInfo.vocation, account_id_)) {
                 spdlog::info("Character created successfully.");
-                
+
                 // Obtenha o ID do novo personagem criado
                 CharacterInfo newCharacter = playerManager.getCharacterInfo(creationInfo.name, account_id_);
 
@@ -204,7 +205,7 @@ void Session::handleCharacterSelectionCommands(const std::vector<uint8_t>& messa
                 sendDataToClient(creationSuccessMessage);
             } else {
                 spdlog::error("Character creation failed.");
-                
+
                 // Crie a resposta binária de criação falhada
                 std::vector<uint8_t> creationFailureMessage = characterProtocol.createCharacterCreationFailure(1); // Código de erro
                 sendDataToClient(creationFailureMessage);
@@ -333,75 +334,6 @@ void Session::broadcastNewPlayerInfo() {
     spdlog::info("Broadcasted new player info for playerId {}", player_id_);
 }
 
-void Session::handleMovementCommands(const std::vector<uint8_t>& message) {
-    if (!is_position_valid) {
-        spdlog::warn("Invalid position, cannot move playerId {}", player_id_);
-        return;
-    }
-
-    MovementProtocol movementProtocol;
-    ProtocolCommand command = movementProtocol.getCommandFromMessage(message);
-
-    if (command == ProtocolCommand::MOVE_CHARACTER) {
-        auto [new_x, new_y] = movementProtocol.extractMovementData(message);
-
-        // Verifica se a nova posição é caminhável
-        if (world_.isPositionWalkable(new_x, new_y)) {
-            // Atualiza a posição do jogador no mundo
-            world_.updatePlayerPosition(player_id_, new_x, new_y);
-
-            // Obtém a nova posição atualizada
-            auto [updated_x, updated_y, updated_z] = world_.getPlayerPosition(player_id_);
-
-            // Cria a mensagem de confirmação de movimento
-            std::vector<uint8_t> movementConfirmedMessage = {static_cast<uint8_t>(ProtocolCommand::MOVEMENT_CONFIRMED)};
-            // Serialize updated_x, updated_y, updated_z como float (4 bytes cada)
-            float posX = static_cast<float>(updated_x);
-            float posY = static_cast<float>(updated_y);
-            float posZ = static_cast<float>(updated_z);
-            uint8_t* posXBytes = reinterpret_cast<uint8_t*>(&posX);
-            uint8_t* posYBytes = reinterpret_cast<uint8_t*>(&posY);
-            uint8_t* posZBytes = reinterpret_cast<uint8_t*>(&posZ);
-            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posXBytes, posXBytes + sizeof(float));
-            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posYBytes, posYBytes + sizeof(float));
-            movementConfirmedMessage.insert(movementConfirmedMessage.end(), posZBytes, posZBytes + sizeof(float));
-
-            // Envia a confirmação de movimento ao cliente
-            sendDataToClient(movementConfirmedMessage);
-
-            // Define o range de proximidade
-            int range = 500;
-
-            // Envia a atualização de posição para jogadores próximos
-            std::vector<int> nearbyPlayers = world_.getPlayersInProximity(player_id_, range);
-            auto positionUpdateMessage = movementProtocol.createPositionUpdateMessage(player_id_, updated_x, updated_y);
-
-            for (int nearbyPlayerId : nearbyPlayers) {
-                if (nearbyPlayerId == player_id_) continue; // Evita enviar para si mesmo
-
-                auto session = sessionManager_.getSession(nearbyPlayerId);
-                if (session) {
-                    // **Otimização: Evitar Cálculo de Distância Dupla**
-                    // Supondo que `getPlayersInProximity` já filtrou por range
-                    session->sendDataToClient(positionUpdateMessage);
-                    spdlog::debug("Sent OTHER_PLAYER_UPDATE to playerId {}", nearbyPlayerId);
-                } else {
-                    spdlog::debug("No session found for playerId {}", nearbyPlayerId);
-                }
-            }
-
-            spdlog::info("Player {} moved to x = {}, y = {} and update sent to nearby players", player_id_, new_x, new_y);
-        } else {
-            spdlog::warn("Player {} attempted to move to invalid position ({}, {})", player_id_, new_x, new_y);
-            // Crie a resposta binária de movimento bloqueado
-            std::vector<uint8_t> movementBlockedMessage = {static_cast<uint8_t>(ProtocolCommand::MOVEMENT_BLOCKED)};
-            sendDataToClient(movementBlockedMessage);
-        }
-
-        receiveClientData();
-    }
-}
-
 void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
     CharacterProtocol characterProtocol;
     ProtocolCommand command = characterProtocol.getCommandFromMessage(message);
@@ -419,7 +351,7 @@ void Session::handlePlayerCommands(const std::vector<uint8_t>& message) {
             break;
         }
         case ProtocolCommand::MOVE_CHARACTER: {
-            handleMovementCommands(message);
+            movementHandler_.handleMovementCommands(message); // Delegação para SessionMovement
             break;
         }
         case ProtocolCommand::ATTACK: {

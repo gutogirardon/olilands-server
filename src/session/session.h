@@ -7,6 +7,7 @@
 #include "world/world.h"
 #include "models/otherplayerinfo.h"
 #include "handlers/sessionattack.h"
+#include "handlers/sessionmovement.h"
 
 class SessionManager;
 
@@ -19,7 +20,6 @@ public:
     void receiveClientData();
 
 private:
-    void handleMovementCommands(const std::vector<uint8_t>& message);
     void handlePlayerCommands(const std::vector<uint8_t>& message);
     void handleCharacterSelectionCommands(const std::vector<uint8_t>& message);
     void authenticatePlayer(const std::vector<uint8_t>& message);
@@ -50,8 +50,8 @@ private:
     static const int max_length = 1024;
     uint8_t data_[max_length];
 
-    // Adicionado: Membro para tratar ataques
     SessionAttack attackHandler_;
+    SessionMovement movementHandler_;
 };
 
 #endif // SESSION_H
