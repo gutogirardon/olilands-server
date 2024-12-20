@@ -1,54 +1,53 @@
 # Olilands Server
 
-## Descrição
+## Description
 
-O **Olilands Server** é um servidor de jogos desenvolvido em C++ que utiliza **Boost.Asio** para comunicação assíncrona e **spdlog** para logging eficiente. Projetado para lidar com múltiplas conexões de clientes de forma escalável e robusta, o servidor é ideal para jogos que exigem alta performance e baixa latência.
+The **Olilands Server** is a game server developed in C++ that uses **Boost.Asio** for asynchronous communication and **spdlog** for efficient logging. Designed to handle multiple client connections in a scalable and robust manner, the server is ideal for games requiring high performance and low latency.
 
-## Funcionalidades
+## Features
 
-- **Comunicação Assíncrona**: Gerencia múltiplas conexões de clientes de forma eficiente usando Boost.Asio.
-- **Logging Avançado**: Utiliza spdlog para logs detalhados com suporte a diferentes níveis de log.
-- **Monitoramento de Memória**: Classe `memorymonitor` que monitora o uso de memória e emite alertas quando ultrapassa 80%.
-- **Estrutura Modular**: Código organizado em pastas separadas para facilitar a manutenção e escalabilidade.
-- **Configuração Dinâmica com CMake**: Build system configurado para incluir automaticamente todos os arquivos fonte.
+- **Asynchronous Communication**: Efficiently manages multiple client connections using Boost.Asio.
+- **Advanced Logging**: Utilizes spdlog for detailed logs with support for various log levels.
+- **Memory Monitoring**: A `memorymonitor` class that monitors memory usage and issues alerts when exceeding 80%.
+- **Modular Structure**: Code organized in separate folders for easier maintenance and scalability.
+- **Dynamic Configuration with CMake**: Build system configured to automatically include all source files.
 
-## Arquitetura
+## Architecture
 
-A arquitetura do servidor está dividida nas seguintes classes principais:
+The server's architecture is divided into the following main classes:
 
-- **Server**: Responsável por aceitar novas conexões de clientes.
-- **Session**: Gerencia a comunicação com um cliente individual.
-- **MemoryMonitor**: Monitora o uso de memória do servidor e loga alertas quando necessário.
+- **Server**: Responsible for accepting new client connections.
+- **Session**: Manages communication with individual clients.
+- **MemoryMonitor**: Monitors server memory usage and logs alerts as necessary.
 
-
-## Requisitos
+## Requirements
 
 - **C++20**
-- **CMake** (mínimo versão 3.14)
-- **Boost** (componentes: system)
+- **CMake** (minimum version 3.14)
+- **Boost** (components: system)
 - **spdlog**
-- **Ninja** (opcional, mas recomendado para builds mais rápidos)
-- **Xcode Command Line Tools** (para macOS)
+- **Ninja** (optional but recommended for faster builds)
+- **Xcode Command Line Tools** (for macOS)
 
-## Instalação
+## Installation
 
-1. **Clonar o Repositório**
+1. **Clone the Repository**
 
     ```bash
-    git clone https://github.com/seu-usuario/olilands_server.git
-    cd olilands_server
+    git clone https://github.com/gutogirardon/olilands-server.git
+    cd olilands-server
     ```
 
-2. **Instalar Dependências**
+2. **Install Dependencies**
 
-    - **Boost** e **spdlog** podem ser instalados via Homebrew:
+    - **Boost** and **spdlog** can be installed via Homebrew:
 
         ```bash
         brew install boost
         brew install spdlog
         ```
 
-3. **Configurar o Build com CMake**
+3. **Configure the Build with CMake**
 
     ```bash
     mkdir build
@@ -56,19 +55,15 @@ A arquitetura do servidor está dividida nas seguintes classes principais:
     cmake ..
     ```
 
-4. **Compilar o Projeto**
+4. **Compile the Project**
 
     ```bash
     make
     ```
 
-## Uso
+## Usage
 
-Após a compilação, execute o servidor:
+After compilation, run the server:
 
 ```bash
 ./olilands_server
-```
-
-# Account
-admin / admin 
